@@ -1,0 +1,1 @@
+btstack does not have an example of multi-device, but there's a [perfect example](https://github.com/bluekitchen/btstack/blob/9e31eeadc3dd3c5958ddbe2a8ffe9c2fe991aa12/example/hog_mouse_kbd_joystick.c).
