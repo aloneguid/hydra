@@ -17,10 +17,8 @@ namespace hydra {
         dongle dongle;
 
         // settings
-        float mouse_sensitivity{1.0f};   // mouse sensitivity multiplier
-        bool intercept_keyboard{true};   // intercept keyboard events
-        bool intercept_mouse{true};      // intercept mouse events
-        //bool lock_host_device{true};   // when remoting, host devices will be locked, usefull to turn OFF for testing.
+        int mouse_sensitivity{100};   // mouse sensitivity multiplier
+        ble_central* active_central{nullptr}; // currently active central, if any
 
         const std::chrono::milliseconds CharTypeDelay{10};
         const size_t KeyUpDownDelayMs{5};

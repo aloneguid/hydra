@@ -13,6 +13,8 @@ static const GUID ShellIcon =
 #define OWN_WM_NOTIFY_ICON_MESSAGE WM_APP + 1
 #define IconDisconnected L"IDI_ICON1"
 #define IconConnected L"IDI_S_CONNECTED"
+#define IconActivityKeyboard L"IDI_S_ACT_KBD"
+#define IconActivityMouse L"IDI_S_ACT_MOUSE"
 
 namespace hydra {
 
@@ -36,6 +38,7 @@ namespace hydra {
         }
 
         if(is_remoting) {
+            win32sni.update_icon(IconActivityKeyboard);
             dongle.send_kbd(vk_down);
         }
     }
@@ -87,7 +90,11 @@ namespace hydra {
 
         // measure performance of this call
         //auto last_time = std::chrono::steady_clock::now();
-        dongle.send_mouse(m_l, m_m, m_r, m_xdiff * mouse_sensitivity, m_ydiff * mouse_sensitivity, m_wheel_delta);
+        float multiplier = 0.01f * mouse_sensitivity;
+        win32sni.update_icon(IconActivityMouse);
+        dongle.send_mouse(m_l, m_m, m_r,
+            m_xdiff * multiplier,
+            m_ydiff * multiplier, m_wheel_delta);
         //auto now = std::chrono::steady_clock::now();
         //auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_time).count();
         //::OutputDebugStringA(
@@ -253,10 +260,6 @@ namespace hydra {
             string id = win32pm.id_from_loword_wparam(loword_wparam);
             if(id == "x") {
                 ::PostQuitMessage(0);
-            } else if(id == "s_ik") {
-                intercept_keyboard = !intercept_keyboard;
-            } else if(id == "s_im") {
-                intercept_mouse = !intercept_mouse;
             } else if(id == "clip") {
                 send_clipboard_text();
             } else if(id == "cfg") {
@@ -290,56 +293,52 @@ namespace hydra {
 
     void machine::win32_ll_hook(bool install) {
         if(install) {
-            if(intercept_keyboard) {
-                win32app.install_low_level_keyboard_hook([this](UINT_PTR msg, KBDLLHOOKSTRUCT& kbdll) {
-                    key_event e{static_cast<uint8_t>(kbdll.vkCode), msg == WM_KEYDOWN};
+            win32app.install_low_level_keyboard_hook([this](UINT_PTR msg, KBDLLHOOKSTRUCT& kbdll) {
+                key_event e{static_cast<uint8_t>(kbdll.vkCode), msg == WM_KEYDOWN};
 
-                    if(is_global_hotkey_down()) {
-                        leave();
-                    } else {
-                        on_key_event(e);
-                    }
+                if(is_global_hotkey_down()) {
+                    leave();
+                } else {
+                    on_key_event(e);
+                }
 
-                    return !is_remoting;
-                });
-            }
-            if(intercept_mouse) {
-                win32app.install_low_level_mouse_hook([this](win32::app::mouse_hook_data mhd) {
+                return !is_remoting;
+            });
 
-                    // find out start corordinates
-                    POINT pt;
-                    if(::GetCursorPos(&pt)) {
-                        m_x_start = pt.x;
-                        m_y_start = pt.y;
-                        m_x = pt.x;
-                        m_y = pt.y;
-                        m_xdiff = 0;
-                        m_ydiff = 0;
-                        m_wheel_delta = 0;
-                        m_initialised = true;
-                    }
+            win32app.install_low_level_mouse_hook([this](win32::app::mouse_hook_data mhd) {
 
-                    // center mouse cursor
-                    int scr_w = GetSystemMetrics(SM_CXSCREEN);
-                    int scr_h = GetSystemMetrics(SM_CYSCREEN);
-                    ::SetCursorPos(scr_w / 2, scr_h / 2);
+                // find out start corordinates
+                POINT pt;
+                if(::GetCursorPos(&pt)) {
+                    m_x_start = pt.x;
+                    m_y_start = pt.y;
+                    m_x = pt.x;
+                    m_y = pt.y;
+                    m_xdiff = 0;
+                    m_ydiff = 0;
+                    m_wheel_delta = 0;
+                    m_initialised = true;
+                }
 
-                    // todo: restore mouse cursor position after remoting ends
+                // center mouse cursor
+                int scr_w = GetSystemMetrics(SM_CXSCREEN);
+                int scr_h = GetSystemMetrics(SM_CYSCREEN);
+                ::SetCursorPos(scr_w / 2, scr_h / 2);
 
-                    auto e = to_mouse_event(mhd);
-                    on_mouse_event(e);
+                // todo: restore mouse cursor position after remoting ends
 
-                    return !is_remoting;
-                });
-            }
+                auto e = to_mouse_event(mhd);
+                on_mouse_event(e);
+
+                return !is_remoting;
+            });
+
         } else {
             // uninstall all anyway, because setting may change during the session
             win32app.uninstall_low_level_keyboard_hook();
             win32app.uninstall_low_level_mouse_hook();
 
-            if(intercept_mouse) {
-                ::SetCursorPos(m_x_start, m_y_start);
-            }
+            ::SetCursorPos(m_x_start, m_y_start);
         }
     }
 
@@ -408,7 +407,7 @@ namespace hydra {
     }
 
     void machine::load_config() {
-        mouse_sensitivity = cfg.get_float_value("mouse_sensitivity", 1.0f);
+        mouse_sensitivity = cfg.get_int_value("mouse_sensitivity", 100);
 
         central_names.clear();
         for(const string& addr : cfg.list_keys("central_names")) {

@@ -21,7 +21,7 @@ file(GLOB core_src CONFIGURE_DEPENDS
     "../common/win32/popup_menu.cpp"
     "../common/win32/user.cpp"
     "../common/win32/clipboard.cpp")
-add_executable (${APP_NAME} WIN32 ${core_src} "main.cpp" ipkm.rc)
+add_executable (${APP_NAME} WIN32 ${core_src} "main.cpp" hydra.rc)
 
 target_compile_definitions(${APP_NAME} PRIVATE
     APP_SHORT_NAME="${APP_NAME}"
