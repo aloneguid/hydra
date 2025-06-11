@@ -15,3 +15,10 @@ void led_blink(int times, int delay_ms) {
         sleep_ms(delay_ms);
     }
 }
+
+void led2_blink() {
+    // blink LED on GPIO 6
+    cyw43_arch_gpio_put(6, true);
+    sleep_ms(1000);
+    cyw43_arch_gpio_put(6, false);
+}

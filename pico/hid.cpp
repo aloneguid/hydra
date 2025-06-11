@@ -1,13 +1,19 @@
 #include "hid.h"
+#include <algorithm>
 
 using namespace std;
 
-std::map<hci_con_handle_t, hid_central> hid_central::instances;
+std::vector<hid_central> hid_central::_centrals;
 std::map<std::string, std::string> hid_central::random_to_public_addr;
-hci_con_handle_t hid_central::current_conn_handle{ HCI_CON_HANDLE_INVALID };
+hid_central* hid_central::cc{nullptr};
 
 void hid_central::disconnect(hci_con_handle_t handle) {
-    instances.erase(handle);
+    if(cc && cc->conn == handle) {
+        cc = nullptr; // clear current connection if it was disconnected
+    }
+
+    _centrals.erase(std::remove_if(_centrals.begin(), _centrals.end(),
+        [handle](const hid_central& hc) { return hc.conn == handle; }), _centrals.end());
 }
 
 hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type) {
@@ -22,20 +28,29 @@ hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, 
         }
     }
 
-    instances[handle] = hid_central{handle, saddr, addr_type};
-    if(instances.size() == 1) {
-        current_conn_handle = handle; // set current connection handle to the newly connected device if this is the first connection
+    _centrals.push_back(hid_central{handle, saddr, addr_type});
+    if(_centrals.size() == 1) {
+        cc = &_centrals.back(); // set current connection handle to the newly connected device if this is the first connection
     }
-    return instances[handle];
+    return _centrals.back();
 }
 
-hid_central& hid_central::current() {
-    return instances[current_conn_handle];
+hid_central* hid_central::current() {
+    return cc;
 }
 
-std::map<hci_con_handle_t, hid_central>& hid_central::get_instances() {
+void hid_central::current(hid_central* central) {
+    cc = central;
+}
+
+bool hid_central::contains(hci_con_handle_t handle) {
+    return std::any_of(_centrals.begin(), _centrals.end(),
+        [handle](const hid_central& hc) { return hc.conn == handle; });
+}
+
+vector<hid_central>& hid_central::centrals() {
     refresh_irks();
-    return instances;
+    return _centrals;
 }
 
 void hid_central::add_address_mapping(const std::string& random_addr, const std::string& public_addr) {
@@ -90,8 +105,7 @@ void hid_central::clear_device_db() {
 }
 
 void hid_central::refresh_irks() {
-    for (auto& instance : instances) {
-        hid_central& hc = instance.second;
+    for (auto& hc : _centrals) {
 
         // find entry in device db using the address
         for(int i = 0; i < le_device_db_max_count(); i++) {

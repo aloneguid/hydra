@@ -9,6 +9,11 @@
     return getchar();
  }
 
+ size_t stdin_buf(uint8_t* buf, size_t len) {
+    return fread(buf, sizeof(uint8_t), len, stdin);
+    // printf("read %zu bytes from stdin\n", bytes_read);
+ }
+
  uint8_t stdin_uint8_hex() {
     int c0 = getchar();
     int c1 = getchar();

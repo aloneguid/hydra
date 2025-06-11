@@ -2,3 +2,5 @@
 
 void led_put(bool on);
 void led_blink(int times, int delay_ms = 100);
+
+void led2_blink();

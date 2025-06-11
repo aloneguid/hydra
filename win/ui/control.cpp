@@ -1,4 +1,6 @@
 #include "control.h"
+#include <thread>
+#include <numbers>
 
 namespace hydra::ui {
 
@@ -166,6 +168,30 @@ namespace hydra::ui {
         {
             auto tab = tb.next_tab("mouse");
             if(tab) {
+
+                if(w::button(ICON_MD_CIRCLE)) {
+                    // current coordinate is top of the circle. Move mouse in a circular fashion and come back to the starting position. We can only perform relative moves.
+                    // The circle radius is 100 pixels.
+                    constexpr float radius = 10.0f;
+                    constexpr float steps = 100.0f;
+                    constexpr float angle_step = 2 * std::numbers::pi_v<float> / steps;
+                    for(float i = 0; i < steps; ++i) {
+                        float angle = i * angle_step;
+                        int x = static_cast<int>(radius * std::cos(angle));
+                        int y = static_cast<int>(radius * std::sin(angle));
+                        machine.dongle.send_mouse(false, false, false, x, y, 0);
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    }
+                }
+
+                w::sl();
+                if(w::button(ICON_MD_ARROW_DROP_DOWN)) {
+                    // move down pixel by pixel
+                    for(int i = 0; i < 1000; i++) {
+                        machine.dongle.send_mouse(false, false, false, 1, 1, 0);
+                    }
+                }
+
                 w::slider(emu_mouse_speed, 1, 100, "speed in pixels");
 
                 w::label(" ");

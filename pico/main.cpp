@@ -44,8 +44,9 @@ uint8_t hid_rpt_mouse[4];   // 1 byte for buttons, 1 byte for X, 1 byte for Y, 1
 uint8_t hid_rpt_kbd[8];     // 1 modifier byte, 1 reserved byte, 6 key codes
 uint8_t hid_rpt_consumer[1];
 uint8_t hid_rpt_joy[11];
+bool hid_can_send_now = false; // flag to indicate if we can send a report now
 //currently used report ID, determines the kind of report to be sent after an ATT notification
-volatile report_id last_report_id = report_id::none;
+// volatile report_id last_report_id = report_id::none;
 
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 static btstack_packet_callback_registration_t sm_event_callback_registration;
@@ -72,7 +73,7 @@ const uint8_t adv_data_len = sizeof(adv_data);
  * If the last_report_id is report_id::none, it does nothing.
  * After sending the report, it resets last_report_id to report_id::none.
  */
-static void send_report(hid_central& central) {
+static void send_report(hid_central& central, report_id rid) {
 
     log("handle: %u != %u (%s)", central.conn, HCI_CON_HANDLE_INVALID, central.addr.c_str());
 
@@ -81,57 +82,71 @@ static void send_report(hid_central& central) {
         return; // no active connection
     }
 
-    switch(last_report_id) {
+    while(!hid_can_send_now); // wait until we can send a report
+
+    switch(rid) {
         case report_id::kbd:
-            if(protocol_mode == 0)
+            if(protocol_mode == 0) {
+                hid_can_send_now = false;
                 hids_device_send_boot_keyboard_input_report(central.conn, hid_rpt_kbd, sizeof(hid_rpt_kbd));
-            if(protocol_mode == 1)
-                hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(last_report_id), hid_rpt_kbd, sizeof(hid_rpt_kbd));
+            }
+            else if(protocol_mode == 1) {
+                hid_can_send_now = false;
+                hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(rid), hid_rpt_kbd, sizeof(hid_rpt_kbd));
+            }
+
             if(log_enabled) log("Keyboard - mod: %02x res: %02x codes (6): %02x / %02x / %02x / %02x / %02x / %02x - mode: %d / id: %d\n",
                 hid_rpt_kbd[0], hid_rpt_kbd[1],
                 hid_rpt_kbd[2], hid_rpt_kbd[3], hid_rpt_kbd[4], hid_rpt_kbd[5], hid_rpt_kbd[6], hid_rpt_kbd[7],
-                protocol_mode, last_report_id);
+                protocol_mode, rid);
+
             break;
 
         case report_id::consumer:
             if(protocol_mode == 0) if(log_enabled) log("Cannot send consumer keys in boot mode");
-            if(protocol_mode == 1) hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(last_report_id), hid_rpt_consumer, sizeof(hid_rpt_consumer));
-            if(log_enabled) log("Consumer key: %02x / id: %d", hid_rpt_consumer[0], last_report_id);
+            if(protocol_mode == 1) hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(rid), hid_rpt_consumer, sizeof(hid_rpt_consumer));
+            if(log_enabled) log("Consumer key: %02x / id: %d", hid_rpt_consumer[0], rid);
             break;
 
         case report_id::mouse:
-            if(protocol_mode == 0) hids_device_send_boot_mouse_input_report(central.conn, hid_rpt_mouse, sizeof(hid_rpt_mouse));
-            if(protocol_mode == 1) hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(last_report_id), hid_rpt_mouse, sizeof(hid_rpt_mouse));
-            if(log_enabled) log("Mouse: %d/%d - buttons: %02x - mode: %d / id: %d", hid_rpt_mouse[1], hid_rpt_mouse[2], hid_rpt_mouse[0], protocol_mode, last_report_id);
+            if(protocol_mode == 0) {
+                hid_can_send_now = false; // reset the flag, we sent the report
+                hids_device_send_boot_mouse_input_report(central.conn, hid_rpt_mouse, sizeof(hid_rpt_mouse));
+            }
+            else if(protocol_mode == 1) {
+                hid_can_send_now = false;
+                hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(rid), hid_rpt_mouse, sizeof(hid_rpt_mouse));
+            }
+            if(log_enabled) log("Mouse: %d/%d - buttons: %02x - mode: %d / id: %d", hid_rpt_mouse[1], hid_rpt_mouse[2], hid_rpt_mouse[0], protocol_mode, rid);
+            hid_can_send_now = false; // reset the flag, we sent the report
             break;
 
         case report_id::joystick:
             if(protocol_mode == 0) if(log_enabled) log("Cannot send joystick in boot mode");
-            if(protocol_mode == 1) hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(last_report_id), hid_rpt_joy, sizeof(hid_rpt_joy));
+            if(protocol_mode == 1) hids_device_send_input_report_for_id(central.conn, static_cast<uint16_t>(rid), hid_rpt_joy, sizeof(hid_rpt_joy));
             if(log_enabled) log("Joystick report: %02x - %02x - %02x - %02x - %02x - %02x - %02x - %02x - %02x - %02x - %02x / id: %d", \
                 hid_rpt_joy[0], hid_rpt_joy[1], hid_rpt_joy[2], hid_rpt_joy[3], hid_rpt_joy[4], hid_rpt_joy[5], \
-                hid_rpt_joy[6], hid_rpt_joy[7], hid_rpt_joy[8], hid_rpt_joy[9], hid_rpt_joy[10], static_cast<uint16_t>(last_report_id));
+                hid_rpt_joy[6], hid_rpt_joy[7], hid_rpt_joy[8], hid_rpt_joy[9], hid_rpt_joy[10], static_cast<uint16_t>(rid));
             break;
 
         default:
             if(log_enabled) log("last_report_id == 0, don't know which report to send");
     }
-
-    last_report_id = report_id::none;
 }
 
-static void send_report() {
+static void send_report(report_id rid) {
     if(!hid_central::any()) {
         if(log_enabled) log("No HID devices connected, cannot send report");
         return; // no active central
     }
 
-    hid_central& central = hid_central::current();
-    send_report(central);
-}
+    hid_central* central = hid_central::current();
+    if(central == nullptr) {
+        if(log_enabled) log("No current central, cannot send report");
+        return; // no current central
+    }
 
-static void on_hid_can_send_now(void) {
-    send_report();
+    send_report(*central, rid);
 }
 
 static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, uint16_t size) {
@@ -269,7 +284,8 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                     break;
                 case HIDS_SUBEVENT_CAN_SEND_NOW:
                     if(log_enabled) log("HID Can Send Now");
-                    on_hid_can_send_now();
+                    // on_hid_can_send_now();
+                    hid_can_send_now = true; // set the flag to indicate we can send another report now
                     break;
                 default:
                     break;
@@ -296,26 +312,28 @@ bool peripherial_handler(uint8_t cmd) {
     if(cmd == 1) {
         // keyboard, read 8 more bytes
         if(log_enabled) log("keyboard command");
-        for(int i = 0; i < 8; i++) {
-            hid_rpt_kbd[i] = stdin_uint8();
-        }
-        last_report_id = report_id::kbd; // set report ID
+        stdin_buf(hid_rpt_kbd, sizeof(hid_rpt_kbd));
+        // for(int i = 0; i < 8; i++) {
+        //     hid_rpt_kbd[i] = stdin_uint8();
+        // }
+        // last_report_id = report_id::kbd; // set report ID
         // if(log_enabled) log("Keyboard - mod: %02x res: %02x codes (6): %02x / %02x / %02x / %02x / %02x / %02x",
         //     hid_rpt_kbd[0], hid_rpt_kbd[1],
         //     hid_rpt_kbd[2], hid_rpt_kbd[3], hid_rpt_kbd[4], hid_rpt_kbd[5], hid_rpt_kbd[6], hid_rpt_kbd[7]);
 
-        send_report(); // send the report
-        while(last_report_id != report_id::none);   // wait for report to be sent
+        send_report(report_id::kbd); // send the report
+        // while(last_report_id != report_id::none);   // wait for report to be sent
         return true;
     } else if(cmd == 2) {
         // mouse, read 4 more bytes
         if(log_enabled) log("mouse command");
-        for(int i = 0; i < 4; i++) {
-            hid_rpt_mouse[i] = stdin_uint8();
-        }
-        last_report_id = report_id::mouse; // set report ID
-        send_report(); // send the report
-        while(last_report_id != report_id::none);   // wait for report to be sent
+        stdin_buf(hid_rpt_mouse, sizeof(hid_rpt_mouse));
+        // for(int i = 0; i < 4; i++) {
+        //     hid_rpt_mouse[i] = stdin_uint8();
+        // }
+        // last_report_id = report_id::mouse; // set report ID
+        send_report(report_id::mouse); // send the report
+        // while(last_report_id != report_id::none);   // wait for report to be sent
         return true;
     }
     return false;
@@ -338,9 +356,8 @@ bool interactive_handler(uint8_t cmd) {
     if(cmd == 'l') {
         printf("#\tHANDLE\tADDRESS\t\t\tAT\tIRK\n");
         int index = 0;
-        for(auto& hc : hid_central::get_instances()) {
-            hid_central& central = hc.second;
-            string marker = (hc.first == hid_central::current_conn_handle) ? "*" : " ";
+        for(hid_central& central : hid_central::centrals()) {
+            string marker = (central.conn == hid_central::current()->conn) ? "*" : " ";
             printf("%u %s\t%u\t%s\t%s\t%s\n", index++,
                 marker.c_str(),
                 central.conn,
@@ -367,9 +384,9 @@ bool interactive_handler(uint8_t cmd) {
         printf("\n");
 
         bool found = false;
-        for(auto& hc : hid_central::get_instances()) {
-            if(hc.second.addr == address) {
-                hid_central::current_conn_handle = hc.first;
+        for(auto& hc : hid_central::centrals()) {
+            if(hc.addr == address) {
+                hid_central::current(&hc);
                 found = true;
                 if(log_enabled) log("switched to %s", address.c_str());
                 break;
@@ -414,13 +431,12 @@ bool interactive_handler(uint8_t cmd) {
 
                 // press 't'
                 hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0x17);
-                last_report_id = report_id::kbd;
-                send_report();
-                while(last_report_id != report_id::none);
+                // last_report_id = report_id::kbd;
+                send_report(report_id::kbd);
+                // while(last_report_id != report_id::none);
                 // release 't'
                 hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0);
-                last_report_id = report_id::kbd;
-                send_report();
+                send_report(report_id::kbd);
             } else if(cmd == 'w' || cmd == 'a' || cmd == 's' || cmd == 'd') {
                 printf(".");
 
@@ -436,8 +452,7 @@ bool interactive_handler(uint8_t cmd) {
                 else if(cmd == 'a') hid_rpt_mouse[1] = -speed; // X movement left
                 else if(cmd == 's') hid_rpt_mouse[2] = speed; // Y movement down
                 else if(cmd == 'd') hid_rpt_mouse[1] = speed; // X movement right
-                last_report_id = report_id::mouse;
-                send_report();
+                send_report(report_id::mouse);
             } else {
                 printf("unknown command: %c\n", cmd);
             }
@@ -454,15 +469,6 @@ bool interactive_handler(uint8_t cmd) {
     }
 
     if(cmd == 'u') {
-
-        // if(log_enabled) log("unpairing from all devices...");
-        // uint32_t sector_bytes = FLASH_SECTOR_SIZE;
-        // uint32_t flash_size = PICO_FLASH_SIZE_BYTES;
-        // if(log_enabled) log("sector size: %u bytes, flash size: %u bytes", sector_bytes, flash_size);
-        // // sector_bytes *= 2; // 2 sectors
-        // uint32_t start_addr = flash_size - sector_bytes;
-        // if(log_enabled) log("erasing last 2 sectors of flash to remove pairing data (%u + %u)...", start_addr, sector_bytes);
-        // // flash_range_erase(start_addr, sector_bytes);
 
         // remove all devices from btstack storage
         if(log_enabled) log("unpairing from all devices...");
@@ -484,6 +490,13 @@ bool interactive_handler(uint8_t cmd) {
     return false;
 }
 
+bool interactive_handler_with_led(uint8_t cmd) {
+    led_put(true);
+    bool result = interactive_handler(cmd);
+    led_put(false);
+    return result;
+}
+
 void protocol_handler() {
 
     if(log_enabled) log("HID Protocol Handler started.");
@@ -493,14 +506,10 @@ void protocol_handler() {
         uint8_t cmd = stdin_uint8();
         if(log_enabled) log("command: %d", cmd);
 
-        led_put(true); // turn on LED to indicate input received
-
-        if(!(peripherial_handler(cmd) || interactive_handler(cmd))) {
+        if(!(peripherial_handler(cmd) || interactive_handler_with_led(cmd))) {
             if(log_enabled) log("unknown command: %d", cmd);
-            led_blink(20, 50); // blink to indicate error
+            led_blink(10, 30); // blink to indicate error
         }
-
-        led_put(false); // turn off LED
     }
 }
 
@@ -556,19 +565,11 @@ int main() {
     // turn on!
     hci_power_control(HCI_POWER_ON);
 
-    led_blink(5, 50); // blink LED 5 times to indicate startup
+    // blink LED 5 times to indicate startup
+    led_blink(5, 20);
 
     // interactive_test();
     protocol_handler();
-
-    // int i = 0;
-    // while(true) {
-    //     log("waiting");
-    //     uint8_t n = stdin_uint8();
-
-    //     log("%d: You have typed: %02x", i, n);
-    //     i++;
-    // }
 
     return 0;
 }

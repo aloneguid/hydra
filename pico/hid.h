@@ -3,6 +3,7 @@
 #include "btstack.h"
 #include <map>
 #include <string>
+#include <vector>
 
 /**
  * Understand HID descriptors
@@ -182,18 +183,19 @@ class hid_central {
         std::string irk; // Identity Resolving Key, used for resolving random addresses
 
         // globals
-        static hci_con_handle_t current_conn_handle;
-        
         static void disconnect(hci_con_handle_t handle);
         static hid_central connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type);
-        static hid_central& current();
+        static hid_central* current();
+        static void current(hid_central* central);
         static bool any() {
-            return !instances.empty();
+            return !_centrals.empty();
         }
+        static bool contains(hci_con_handle_t handle);
+        
         static size_t size() {
-            return instances.size();
+            return _centrals.size();
         }
-        static std::map<hci_con_handle_t, hid_central>& get_instances();
+        static std::vector<hid_central>& centrals();
 
         static void add_address_mapping(const std::string& random_addr, const std::string& public_addr);
 
@@ -204,7 +206,8 @@ class hid_central {
         static void clear_device_db();
 
     private:
-        static std::map<hci_con_handle_t, hid_central> instances;
+        static hid_central* cc;
+        static std::vector<hid_central> _centrals;
         static std::map<std::string, std::string> random_to_public_addr;
 
         /**
