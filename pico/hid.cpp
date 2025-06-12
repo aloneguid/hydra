@@ -1,15 +1,17 @@
 #include "hid.h"
 #include <algorithm>
+#include <hardware/flash.h>
 
 using namespace std;
 
 std::vector<hid_central> hid_central::_centrals;
 std::map<std::string, std::string> hid_central::random_to_public_addr;
-hid_central* hid_central::cc{nullptr};
+std::map<std::string, std::string> hid_central::addr_to_user_name;
+hid_central hid_central::cc;
 
 void hid_central::disconnect(hci_con_handle_t handle) {
-    if(cc && cc->conn == handle) {
-        cc = nullptr; // clear current connection if it was disconnected
+    if(cc.conn == handle) {
+        cc = hid_central(); // clear current connection if it was disconnected
     }
 
     _centrals.erase(std::remove_if(_centrals.begin(), _centrals.end(),
@@ -28,18 +30,20 @@ hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, 
         }
     }
 
-    _centrals.push_back(hid_central{handle, saddr, addr_type});
+    hid_central new_central{handle, saddr, addr_type};
+    _centrals.push_back(new_central);
+
     if(_centrals.size() == 1) {
-        cc = &_centrals.back(); // set current connection handle to the newly connected device if this is the first connection
+        cc = new_central; // set current connection handle to the newly connected device if this is the first connection
     }
-    return _centrals.back();
+    return new_central;
 }
 
-hid_central* hid_central::current() {
+hid_central& hid_central::current() {
     return cc;
 }
 
-void hid_central::current(hid_central* central) {
+void hid_central::current(hid_central central) {
     cc = central;
 }
 

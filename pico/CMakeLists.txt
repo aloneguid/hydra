@@ -24,38 +24,40 @@ if (EXISTS ${picoVscode})
 endif()
 # ====================================================================================
 set(PICO_BOARD pico_w CACHE STRING "Board type")
+set(PICO_DEOPTIMIZED_DEBUG ON CACHE BOOL "Enable deoptimized debug build")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(ipkm C CXX ASM)
+project(hydra C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(ipkm main.cpp dashboard.cpp hid.cpp)
+add_executable(hydra main.cpp dashboard.cpp hid.cpp)
 
 # pull in common dependencies
-target_link_libraries(ipkm
+target_link_libraries(hydra
     pico_stdlib
     pico_cyw43_arch_none
     pico_btstack_ble
     pico_btstack_cyw43
-    hardware_adc)
+    hardware_adc
+    hardware_flash hardware_sync)
 
 
-target_include_directories(ipkm PRIVATE
+target_include_directories(hydra PRIVATE
     ${CMAKE_CURRENT_LIST_DIR} # For btstack config
     )
 
-pico_btstack_make_gatt_header(ipkm PRIVATE "${CMAKE_CURRENT_LIST_DIR}/device.gatt")
+pico_btstack_make_gatt_header(hydra PRIVATE "${CMAKE_CURRENT_LIST_DIR}/device.gatt")
 
 # enable usb output, disable uart output
 # "Bus Reported Device Description" will be "Board CDC" in Windows Device Manager.
-pico_enable_stdio_usb(ipkm 1)
-pico_enable_stdio_uart(ipkm 0)
+pico_enable_stdio_usb(hydra 1)
+pico_enable_stdio_uart(hydra 0)
 
 # create map/bin/hex/uf2 file etc.
-pico_add_extra_outputs(ipkm)
+pico_add_extra_outputs(hydra)

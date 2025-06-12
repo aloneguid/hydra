@@ -182,11 +182,13 @@ class hid_central {
         uint8_t addr_t;
         std::string irk; // Identity Resolving Key, used for resolving random addresses
 
+        operator bool() const { return conn != HCI_CON_HANDLE_INVALID; }
+
         // globals
         static void disconnect(hci_con_handle_t handle);
         static hid_central connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type);
-        static hid_central* current();
-        static void current(hid_central* central);
+        static hid_central& current();
+        static void current(hid_central central);
         static bool any() {
             return !_centrals.empty();
         }
@@ -206,9 +208,10 @@ class hid_central {
         static void clear_device_db();
 
     private:
-        static hid_central* cc;
+        static hid_central cc;
         static std::vector<hid_central> _centrals;
         static std::map<std::string, std::string> random_to_public_addr;
+        static std::map<std::string, std::string> addr_to_user_name;
 
         /**
          * Iterates through instances and refreshes IRKs for all devices using device db;
