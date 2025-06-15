@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-bool log_enabled = false;
+bool log_enabled = true;
 int line_id = 0;
 
 void log(const char *format, ...) {

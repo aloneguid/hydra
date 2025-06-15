@@ -9,9 +9,8 @@ namespace hydra::ui {
 
     control::control(hydra::machine& machine) :
         wnd_main{"Control", &is_running},
-        wnd_emu{"Emulator", &wnd_emu_visible},
         machine{machine} {
-        app = grey::app::make(APP_LONG_NAME, 500, 250);
+        app = grey::app::make(APP_LONG_NAME, 500, 350);
         app->win32_can_resize = false;
         //app->initial_theme_id = "duck_red";
 
@@ -21,14 +20,6 @@ namespace hydra::ui {
             .no_resize()
             .no_scroll()
             .border(0);
-
-        wnd_emu
-            .border(1)
-            .size(400, 300);
-
-        centrals_container
-            .border()
-            .resize(0, 100 * w::scale);
 
         centrals = machine.list_centrals();
     }
@@ -59,16 +50,44 @@ namespace hydra::ui {
 
         with_window(wnd_main, {
             render_toolbar();
-            render_centrals();
 
-            if(wnd_emu_visible) {
-                with_window(wnd_emu, {
-                    render_emulator();
-                });
-            }
+            render_main_tabs();
 
             render_status_bar();
         });
+    }
+
+    void control::render_main_tabs() {
+
+        w::tab_bar tb{"tbmain"};
+
+        {
+            auto tab = tb.next_tab("devices");
+            if(tab) {
+                render_centrals();
+            }
+        }
+
+        {
+            auto tab = tb.next_tab("typer");
+            if(tab) {
+                render_typer();
+            }
+        }
+
+        {
+            auto tab = tb.next_tab("mouse");
+            if(tab) {
+                render_mouse_emulator();
+            }
+        }
+
+        {
+            auto tab = tb.next_tab("settings");
+            if(tab) {
+                render_settings();
+            }
+        }
     }
 
     void control::render_toolbar() {
@@ -85,10 +104,14 @@ namespace hydra::ui {
         w::tooltip("Enter capture mode. To exit, press ctrl+alt.");
 
         w::sl();
-        if(w::button(ICON_MD_TOUCH_APP)) {
-            wnd_emu_visible = !wnd_emu_visible;
+        if(w::button(ICON_MD_DASHBOARD)) {
+            machine.dongle.get_dashboard();
         }
-        w::tooltip("Toggle emulator window");
+
+        w::sl();
+        if(w::button(ICON_MD_DASHBOARD_CUSTOMIZE)) {
+            machine.dongle.reset_dashboard();
+        }
 
         if(!error_message.empty()) {
             w::sl();
@@ -103,17 +126,17 @@ namespace hydra::ui {
         with_container(centrals_container,
             for(ble_central& c : centrals) {
 
+                w::label(ICON_MD_FIBER_MANUAL_RECORD, c.is_default ? w::emphasis::primary : w::emphasis::none);
                 if(!c.is_default) {
-                    if(w::button(string{ICON_MD_POWER} + "##" + c.address)) {
+                    if(w::is_hovered()) {
+                        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                    }
+                    if(w::is_leftclicked()) {
                         machine.dongle.activate_central(c.address);
                         centrals_dirty = true;
                     }
-                } else {
-                    w::label("");
                 }
 
-                w::sl(40 * w::scale);
-                w::label(ICON_MD_FIBER_MANUAL_RECORD, c.is_default ? w::emphasis::primary : w::emphasis::none);
                 w::sl();
                 if(w::input(c.name, "##" + c.address, true, 200 * w::scale)) {
                     machine.rename_central(c.address, c.name);
@@ -124,12 +147,18 @@ namespace hydra::ui {
                 w::label(c.address, 0, false);
             }
         );
+    }
 
-        w::slider(machine.mouse_sensitivity, 0, 300, "mouse sensitivity");
-        w::sl();
-        if(w::button(ICON_MD_RESTART_ALT)) {
-            machine.mouse_sensitivity = 100;
+    void control::render_typer() {
+        if(w::button(ICON_MD_KEYBOARD " type", w::emphasis::primary, emu_text.size() > 0)) {
+            machine.send_text(emu_text);
         }
+        w::sl();
+        if(w::button(ICON_MD_DELETE " clear", w::emphasis::error, emu_text.size() > 0)) {
+            emu_text.clear();
+        }
+
+        w::input_ml("##emu_text", emu_text, 0.0f, false, true);
     }
 
     void control::render_status_bar() {
@@ -141,95 +170,91 @@ namespace hydra::ui {
             w::sl();
             w::label("|", 0, false);
 
-            w::sl();
-            w::label("todo");
+            for(auto& c : centrals) {
+                if(c.is_default) {
+                    w::sl();
+                    w::label(c.name);
+                    break;
+                }
+            }
+
         );
     }
 
-    void control::render_emulator() {
+    void control::render_mouse_emulator() {
 
-        w::tab_bar tb{"emu"};
-
-        {
-            auto tab = tb.next_tab("keyboard");
-            if(tab) {
-                if(w::button(ICON_MD_KEYBOARD " type", w::emphasis::primary, emu_text.size() > 0)) {
-                    machine.send_text(emu_text);
-                }
-                w::sl();
-                if(w::button(ICON_MD_DELETE " clear", w::emphasis::error, emu_text.size() > 0)) {
-                    emu_text.clear();
-                }
-
-                w::input_ml("##emu_text", emu_text, 0.0f, false, true);
+        if(w::button(ICON_MD_CIRCLE)) {
+            // current coordinate is top of the circle. Move mouse in a circular fashion and come back to the starting position. We can only perform relative moves.
+            // The circle radius is 100 pixels.
+            constexpr float radius = 10.0f;
+            constexpr float steps = 100.0f;
+            constexpr float angle_step = 2 * std::numbers::pi_v<float> / steps;
+            for(float i = 0; i < steps; ++i) {
+                float angle = i * angle_step;
+                int x = static_cast<int>(radius * std::cos(angle));
+                int y = static_cast<int>(radius * std::sin(angle));
+                machine.dongle.send_mouse(false, false, false, x, y, 0);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
 
-        {
-            auto tab = tb.next_tab("mouse");
-            if(tab) {
-
-                if(w::button(ICON_MD_CIRCLE)) {
-                    // current coordinate is top of the circle. Move mouse in a circular fashion and come back to the starting position. We can only perform relative moves.
-                    // The circle radius is 100 pixels.
-                    constexpr float radius = 10.0f;
-                    constexpr float steps = 100.0f;
-                    constexpr float angle_step = 2 * std::numbers::pi_v<float> / steps;
-                    for(float i = 0; i < steps; ++i) {
-                        float angle = i * angle_step;
-                        int x = static_cast<int>(radius * std::cos(angle));
-                        int y = static_cast<int>(radius * std::sin(angle));
-                        machine.dongle.send_mouse(false, false, false, x, y, 0);
-                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    }
-                }
-
-                w::sl();
-                if(w::button(ICON_MD_ARROW_DROP_DOWN)) {
-                    // move down pixel by pixel
-                    for(int i = 0; i < 1000; i++) {
-                        machine.dongle.send_mouse(false, false, false, 1, 1, 0);
-                    }
-                }
-
-                w::slider(emu_mouse_speed, 1, 100, "speed in pixels");
-
-                w::label(" ");
-                w::sl(35 * w::scale);
-                if(w::button(ICON_MD_NORTH)) {
-                    machine.dongle.send_mouse(false, false, false,
-                        0, -emu_mouse_speed, 0);
-                }
-
-                w::sl(100 * w::scale);
-                if(w::button("L")) {
-                    machine.dongle.send_mouse(true, false, false, 0, 0, 0);
-                }
-                w::sl();
-                if(w::button("M")) {
-                    machine.dongle.send_mouse(false, true, false, 0, 0, 0);
-                }
-                w::sl();
-                if(w::button("R")) {
-                    machine.dongle.send_mouse(false, false, true, 0, 0, 0);
-                }
-
-                if(w::button(ICON_MD_WEST)) {
-                    machine.dongle.send_mouse(false, false, false,
-                        -emu_mouse_speed, 0, 0);
-                }
-                w::sl(60 * w::scale);
-                if(w::button(ICON_MD_EAST)) {
-                    machine.dongle.send_mouse(false, false, false,
-                        emu_mouse_speed, 0, 0);
-                }
-                w::label(" ");
-                w::sl(35 * w::scale);
-                if(w::button(ICON_MD_SOUTH)) {
-                    machine.dongle.send_mouse(false, false, false, 0, emu_mouse_speed, 0);
-                }
+        w::sl();
+        if(w::button(ICON_MD_ARROW_DROP_DOWN)) {
+            // move down pixel by pixel
+            for(int i = 0; i < 1000; i++) {
+                machine.dongle.send_mouse(false, false, false, 1, 1, 0);
             }
         }
 
+        w::slider(emu_mouse_speed, 1, 100, "speed in pixels");
+
+        w::label(" ");
+        w::sl(35 * w::scale);
+        if(w::button(ICON_MD_NORTH)) {
+            machine.dongle.send_mouse(false, false, false,
+                0, -emu_mouse_speed, 0);
+        }
+
+        w::sl(100 * w::scale);
+        if(w::button("L")) {
+            machine.dongle.send_mouse(true, false, false, 0, 0, 0);
+        }
+        w::sl();
+        if(w::button("M")) {
+            machine.dongle.send_mouse(false, true, false, 0, 0, 0);
+        }
+        w::sl();
+        if(w::button("R")) {
+            machine.dongle.send_mouse(false, false, true, 0, 0, 0);
+        }
+
+        if(w::button(ICON_MD_WEST)) {
+            machine.dongle.send_mouse(false, false, false,
+                -emu_mouse_speed, 0, 0);
+        }
+        w::sl(60 * w::scale);
+        if(w::button(ICON_MD_EAST)) {
+            machine.dongle.send_mouse(false, false, false,
+                emu_mouse_speed, 0, 0);
+        }
+        w::label(" ");
+        w::sl(35 * w::scale);
+        if(w::button(ICON_MD_SOUTH)) {
+            machine.dongle.send_mouse(false, false, false, 0, emu_mouse_speed, 0);
+        }
+    }
+
+    void control::render_settings() {
+        if(w::button(ICON_MD_RESTART_ALT)) {
+            machine.mouse_sensitivity = 100;
+        }
+        w::sl();
+        w::slider(machine.mouse_sensitivity, 0, 300, "mouse sensitivity");
+
+        if(w::button(ICON_MD_RESTART_ALT)) {
+            machine.key_press_delay_ms = 100;
+        }
+        w::sl();
+        w::slider(machine.key_press_delay_ms, 0, 1000, "key press delay (ms)");
     }
 }

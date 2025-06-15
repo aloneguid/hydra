@@ -64,6 +64,10 @@ namespace hydra {
 
         void activate_central(const std::string& address);
 
+        void get_dashboard();
+
+        void reset_dashboard();
+
         void restart();
 
     private:

@@ -19,6 +19,7 @@ static const GUID ShellIcon =
 namespace hydra {
 
     using namespace std;
+    using namespace std::chrono;
     namespace fs = std::filesystem;
 
     void machine::notify(const std::string& text) {
@@ -38,33 +39,31 @@ namespace hydra {
         }
 
         if(is_remoting) {
-            win32sni.update_icon(IconActivityKeyboard);
+            //win32sni.update_icon(IconActivityKeyboard);
             dongle.send_kbd(vk_down);
         }
     }
 
     void machine::on_mouse_event(const mouse_event& e) {
 
-        if(!m_initialised) {
-            m_x = e.x;
-            m_y = e.y;
-            m_xdiff = 0;
-            m_ydiff = 0;
-            m_wheel_delta = 0;
-            m_initialised = true;
-        } else {
+        // calculate mouse movement
+        m_xdiff = e.x - m_x;
+        m_ydiff = e.y - m_y;
+        m_wheel_delta = e.wheel_delta;
 
-            // calculate mouse movement
-            m_xdiff = e.x - m_x;
-            m_ydiff = e.y - m_y;
-            m_wheel_delta = e.wheel_delta;
-
-            // clamp to 127
-            if(m_xdiff > 127) m_xdiff = 127;
-            else if(m_xdiff < -127) m_xdiff = -127;
-            if(m_ydiff > 127) m_ydiff = 127;
-            else if(m_ydiff < -127) m_ydiff = -127;
+        if(e.is_move && m_xdiff == 0 && m_ydiff == 0) {
+            // no movement, no need to send
+#if _DEBUG
+            ::OutputDebugStringA("mouse move ignored, no movement\n");
+#endif
+            return;
         }
+
+        // clamp to 127
+        if(m_xdiff > 127) m_xdiff = 127;
+        else if(m_xdiff < -127) m_xdiff = -127;
+        if(m_ydiff > 127) m_ydiff = 127;
+        else if(m_ydiff < -127) m_ydiff = -127;
 
         if(e.button != mouse_button::none) {
             switch(e.button) {
@@ -82,19 +81,39 @@ namespace hydra {
 
 #if _DEBUG
         ::OutputDebugStringA(
-            fmt::format("mouse state. x: {}->{}, y: {}->{}, x_diff: {}, y_diff: {}\n",
-                m_x, e.x, m_y, e.y, m_xdiff, m_ydiff)
+            fmt::format("mouse state. x: {}->{}, y: {}->{}, x_diff: {}, y_diff: {}, m_xdiff_acc: {}, m_ydiff_acc: {}\n",
+                m_x, e.x, m_y, e.y, m_xdiff, m_ydiff, m_xdiff_acc, m_ydiff_acc)
             .c_str());
 
 #endif
 
         // measure performance of this call
-        //auto last_time = std::chrono::steady_clock::now();
+        auto now = steady_clock::now();
+        auto elapsed = duration_cast<milliseconds>(now - m_last_report_time).count();
+
+        if(e.is_move) {
+            if(elapsed < MouseMoveDelayMs) {
+                m_xdiff_acc += m_xdiff;
+                m_ydiff_acc += m_ydiff;
+#if _DEBUG
+                ::OutputDebugStringA(
+                    fmt::format("!!!mouse event ignored, too fast: {} ms < {} ms\n", elapsed, MouseMoveDelayMs).c_str());
+#endif
+                return;
+            } else {
+                m_xdiff += m_xdiff_acc;
+                m_ydiff += m_ydiff_acc;
+                m_xdiff_acc = 0;
+                m_ydiff_acc = 0;
+            }
+        }
+
         float multiplier = 0.01f * mouse_sensitivity;
-        win32sni.update_icon(IconActivityMouse);
+        //win32sni.update_icon(IconActivityMouse);
         dongle.send_mouse(m_l, m_m, m_r,
             m_xdiff * multiplier,
             m_ydiff * multiplier, m_wheel_delta);
+        m_last_report_time = now;
         //auto now = std::chrono::steady_clock::now();
         //auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_time).count();
         //::OutputDebugStringA(
@@ -102,7 +121,7 @@ namespace hydra {
     }
 
     machine::machine() : 
-        win32sni{win32app.get_hwnd(), ShellIcon, OWN_WM_NOTIFY_ICON_MESSAGE, "KM"},
+        win32sni{win32app.get_hwnd(), ShellIcon, OWN_WM_NOTIFY_ICON_MESSAGE, APP_LONG_NAME},
         win32pm{win32app.get_hwnd()},
         cfg{get_config_file_path()} {
 
@@ -146,22 +165,27 @@ namespace hydra {
             std::find(vk_down.begin(), vk_down.end(), VK_LMENU) != vk_down.end();
     }
 
-    void machine::send_clipboard_text() {
+    void machine::send_clipboard_text(int key_delay_ms) {
         string text = win32::clipboard::get_text();
         if(text.empty()) {
             notify("Clipboard is empty.");
             return;
         }
-        send_text(text);
+        send_text(text, key_delay_ms);
     }
 
-    void machine::send_text(const std::string& text) {
+    void machine::send_text(const std::string& text, int key_delay_ms) {
         if(dongle.connected()) {
             try {
                 for(char c : text) {
-                    dongle.send_kbd_char(c, KeyUpDownDelayMs);
+                    dongle.send_kbd_char(c, 0);
 
-                    std::this_thread::sleep_for(CharTypeDelay);
+                    if(key_delay_ms == -1)
+                        key_delay_ms = key_press_delay_ms;
+
+                    if(key_delay_ms > 0) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds{key_delay_ms});
+                    }
                 }
             } catch(const std::exception& e) {
                 notify(fmt::format("Failed to send clipboard text: {}", e.what()));
@@ -207,7 +231,6 @@ namespace hydra {
         win32sni.update_icon(IconConnected);
         win32_global_hotkey(false); // no need for hotkey anymore
         win32_ll_hook(true);
-        m_initialised = false;
         is_remoting = true;
     }
 
@@ -231,7 +254,6 @@ namespace hydra {
         win32_global_hotkey(true);  // hotkey can "enter()"
         clear_hid_state();
         dongle.send_flush();
-        m_initialised = false;
         is_remoting = false;
     }
 
@@ -302,35 +324,43 @@ namespace hydra {
                     on_key_event(e);
                 }
 
-                return !is_remoting;
+                // block all keyboard events
+                return false;
             });
+
+            //remember start corordinates before capture has started, so we can restore them later when needed
+            POINT pt;
+            if(::GetCursorPos(&pt)) {
+                m_x_start = pt.x;
+                m_y_start = pt.y;
+                m_x = pt.x;
+                m_y = pt.y;
+                m_xdiff = 0;
+                m_ydiff = 0;
+                m_wheel_delta = 0;
+            }
+
+            // center mouse cursor
+            int scr_w = GetSystemMetrics(SM_CXSCREEN);
+            int scr_h = GetSystemMetrics(SM_CYSCREEN);
+            ::SetCursorPos(scr_w / 2, scr_h / 2);
 
             win32app.install_low_level_mouse_hook([this](win32::app::mouse_hook_data mhd) {
 
-                // find out start corordinates
-                POINT pt;
-                if(::GetCursorPos(&pt)) {
-                    m_x_start = pt.x;
-                    m_y_start = pt.y;
-                    m_x = pt.x;
-                    m_y = pt.y;
-                    m_xdiff = 0;
-                    m_ydiff = 0;
-                    m_wheel_delta = 0;
-                    m_initialised = true;
-                }
-
-                // center mouse cursor
-                int scr_w = GetSystemMetrics(SM_CXSCREEN);
-                int scr_h = GetSystemMetrics(SM_CYSCREEN);
-                ::SetCursorPos(scr_w / 2, scr_h / 2);
-
-                // todo: restore mouse cursor position after remoting ends
-
                 auto e = to_mouse_event(mhd);
+
                 on_mouse_event(e);
 
-                return !is_remoting;
+                //::SetCursorPos(m_x, m_y);
+                // ignore next mouse move, because we just set cursor position
+                //ignore_next_mouse_move = true;
+
+                m_x = e.x;
+                m_y = e.y;
+
+                // do not block mouse move events, so that we can still use mouse
+                return e.is_move;
+                //return true;
             });
 
         } else {
@@ -352,7 +382,11 @@ namespace hydra {
     }
 
     mouse_event machine::to_mouse_event(win32::app::mouse_hook_data mhd) {
-        mouse_event e{mhd.pt.x, mhd.pt.y, mouse_button::none, false, mhd.wheel_delta};
+        mouse_event e{
+            mhd.pt.x, mhd.pt.y,
+            mouse_button::none,
+            false,
+            mhd.wheel_delta};
 
         switch(mhd.msg) {
             case WM_LBUTTONDOWN:
@@ -388,6 +422,7 @@ namespace hydra {
                 e.down = true;
                 break;
             case WM_MOUSEMOVE:
+                e.is_move = true;
                 // nothing, point is already set
                 break;
             case WM_MOUSEHWHEEL:
@@ -408,6 +443,7 @@ namespace hydra {
 
     void machine::load_config() {
         mouse_sensitivity = cfg.get_int_value("mouse_sensitivity", 100);
+        key_press_delay_ms = cfg.get_int_value("key_press_delay_ms", 100);
 
         central_names.clear();
         for(const string& addr : cfg.list_keys("central_names")) {
@@ -420,6 +456,7 @@ namespace hydra {
 
     void machine::save_config() {
         cfg.set_value("mouse_sensitivity", mouse_sensitivity);
+        cfg.set_value("key_press_delay_ms", key_press_delay_ms);
 
         for(auto& cn : central_names) {
             cfg.set_value(cn.first, cn.second, "central_names");

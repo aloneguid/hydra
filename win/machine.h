@@ -18,27 +18,8 @@ namespace hydra {
 
         // settings
         int mouse_sensitivity{100};   // mouse sensitivity multiplier
-        ble_central* active_central{nullptr}; // currently active central, if any
-
-        const std::chrono::milliseconds CharTypeDelay{10};
-        const size_t KeyUpDownDelayMs{5};
-
-        // keyboard
-        std::vector<uint8_t> vk_down;    // vk codes that are pressed down
-
-        // mouse
-        int m_x_start{0};   // mouse position when capture started
-        int m_y_start{0};
-        bool m_l{false};    // left button
-        bool m_r{false};    // right button
-        bool m_m{false};    // middle button
-        int m_x{0};
-        int m_y{0};
-        // mouse movement
-        int m_xdiff{0};
-        int m_ydiff{0};
-        // mouse wheel
-        int m_wheel_delta{0}; // positive - up, negative - down
+        int key_press_delay_ms{100};
+        //ble_central* active_central{nullptr}; // currently active central, if any
 
         /**
          * @brief Checks if the global hotkey is down when we are in the remote session. This needs to be checked by checking if the corresponding HID report is down.
@@ -47,8 +28,8 @@ namespace hydra {
         bool is_global_hotkey_down();
 
         // utility
-        void send_text(const std::string& text);
-        void send_clipboard_text();
+        void send_text(const std::string& text, int key_delay_ms = -1);
+        void send_clipboard_text(int key_delay_ms = -1);
 
         // config
         std::vector<ble_central> list_centrals();
@@ -70,8 +51,30 @@ namespace hydra {
         win32::shell_notify_icon win32sni;
         win32::popup_menu win32pm;
 
-        bool m_initialised{false};
         bool is_remoting{false};    // machine is in remoting state
+
+        // keyboard state
+        std::vector<uint8_t> vk_down;    // vk codes that are pressed down
+
+        // mouse state
+        const long long MouseMoveDelayMs{1000 / 60}; // 60 FPS
+        std::chrono::steady_clock::time_point m_last_report_time; // last mouse event time
+        // mouse
+        int m_x_start{0};   // mouse position when capture started
+        int m_y_start{0};
+        bool m_l{false};    // left button
+        bool m_r{false};    // right button
+        bool m_m{false};    // middle button
+        int m_x{0};
+        int m_y{0};
+        // mouse movement
+        int m_xdiff{0};
+        int m_xdiff_acc{0};
+        int m_ydiff{0};
+        int m_ydiff_acc{0};
+        // mouse wheel
+        int m_wheel_delta{0}; // positive - up, negative - down
+
 
         void notify(const std::string& text);
 

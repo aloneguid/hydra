@@ -85,7 +85,9 @@ namespace hydra {
         send(hid_rpt_kbd);
 
         // wait for a short time to simulate key press duration
-        std::this_thread::sleep_for(std::chrono::milliseconds{delay_ms});
+        if(delay_ms > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{delay_ms});
+        }
 
         // release the key
         hid_rpt_clear();
@@ -181,6 +183,25 @@ namespace hydra {
     void dongle::activate_central(const std::string& address) {
         com_port->purge();
         com_port->send("s" + address);
+        string r;
+        com_port->recv(r, 1000);
+    }
+
+    void dongle::get_dashboard() {
+        com_port->purge();
+        com_port->send("ds"); // send the Dashboard Show command
+        string r;
+        com_port->recv(r, 1000);
+        // parse the response
+        
+#if _DEBUG
+        ::OutputDebugStringA(fmt::format("Dashboard response: {}\n", r).c_str());
+#endif
+    }
+
+    void dongle::reset_dashboard() {
+        com_port->purge();
+        com_port->send("dr"); // send the Dashboard Reset command
         string r;
         com_port->recv(r, 1000);
     }

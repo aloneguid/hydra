@@ -18,6 +18,15 @@
  * - https://who-t.blogspot.com/2018/12/understanding-hid-report-descriptors.html
  */
 
+/**
+ * Reports IDs:
+ * 1. Keyboard
+ * 2. Consumer Control
+ * 3. Mouse
+ * 4. Gamepad (Joystick)
+ * 5. Mouse with absolute positioning
+ */
+
 static const uint8_t HidReportMap[] = {
 
     // --- Keyboard ---
@@ -56,50 +65,13 @@ static const uint8_t HidReportMap[] = {
             0x81, 0x00,  // Input: (Data, Array)
     0xC0,        // End Collection
 
-    //
-    0x05, 0x0C,   // Usage Pg (Consumer Devices)
-    0x09, 0x01,   // Usage (Consumer Control)
-    0xA1, 0x01,   // Collection (Application)
-    0x85, 0x02,   // Report Id (2)
-    0x05, 0x0C,   //   Usage Pg (Consumer Devices)
-    0x09, 0x86,   //   Usage (Channel)
-    0x15, 0xFF,   //   Logical Min (-1)
-    0x25, 0x01,   //   Logical Max (1)
-    0x75, 0x02,   //   Report Size (2)
-    0x95, 0x01,   //   Report Count (1)
-    0x81, 0x46,   //   Input (Data, Var, Rel, Null)
-    0x09, 0xE9,   //   Usage (Volume Up)
-    0x09, 0xEA,   //   Usage (Volume Down)
-    0x15, 0x00,   //   Logical Min (0)
-    0x75, 0x01,   //   Report Size (1)
-    0x95, 0x02,   //   Report Count (2)
-    0x81, 0x02,   //   Input (Data, Var, Abs)
-    0x09, 0xE2,   //   Usage (Mute)
-    0x09, 0x30,   //   Usage (Power)
-    0x09, 0x83,   //   Usage (Recall Last)
-    0x09, 0x81,   //   Usage (Assign Selection)
-    0x09, 0xB0,   //   Usage (Play)
-    0x09, 0xB1,   //   Usage (Pause)
-    0x09, 0xB2,   //   Usage (Record)
-    0x09, 0xB3,   //   Usage (Fast Forward)
-    0x09, 0xB4,   //   Usage (Rewind)
-    0x09, 0xB5,   //   Usage (Scan Next)
-    0x09, 0xB6,   //   Usage (Scan Prev)
-    0x09, 0xB7,   //   Usage (Stop)
-    0x15, 0x01,   //   Logical Min (1)
-    0x25, 0x0C,   //   Logical Max (12)
-    0x75, 0x04,   //   Report Size (4)
-    0x95, 0x01,   //   Report Count (1)
-    0x81, 0x00,   //   Input (Data, Ary, Abs)
-    0xC0,            // End Collection
-
     // --- Mouse ---
     // we want mouse report to be 4 bytes long (1 byte for buttons, 1 byte for X, Y, and wheel movement)
 
     0x05, 0x01,  // Usage Page (Generic Desktop)
     0x09, 0x02,  // Usage (Mouse)
     0xA1, 0x01,  // Collection (Application)
-        0x85, 0x03,  // Report Id (3)
+        0x85, 0x02,  // Report Id (2)
         0x09, 0x01,  // Usage (Pointer)
         0xA1, 0x00,  // Collection (Physical)
 
@@ -130,46 +102,39 @@ static const uint8_t HidReportMap[] = {
         0xC0,        //   End Collection
     0xC0,        // End Collection
 
-    0x05, 0x01,  // Usage Page (Generic Desktop)
-    0x09, 0x05,  // Usage (Gamepad)
-    0xA1, 0x01,  // Collection (Application)
-    0x85, 0x04,  // Report Id (4)
-    /* 8 bit X, Y, Z, Rz, Rx, Ry (min -127, max 127 ) */
-    /* implemented like Gamepad from tinyUSB */
-      0x05, 0x01,  // Usage Page (Generic Desktop)
-      0x09, 0x30,  // Usage (desktop X)
-      0x09, 0x31,  // Usage (desktop Y)
-      0x09, 0x32,  // Usage (desktop Z)
-      0x09, 0x35,  // Usage (desktop RZ)
-      0x09, 0x33,  // Usage (desktop RX)
-      0x09, 0x34,  // Usage (desktop RY)
-      0x15, 0x81,  // Logical Minimum (-127)
-      0x25, 0x7F,  // Logical Maximum (127)
-      0x95, 0x06,  // Report Count (6)
-      0x75, 0x08,  // Report Size (8)
-      0x81, 0x02,  // Input: (Data, Variable, Absolute)
-      /* 8 bit DPad/Hat Button Map  */
-        0x05, 0x01,  // Usage Page (Generic Desktop)
-        0x09, 0x39,  // Usage (hat switch)
-        0x15, 0x01,   //     Logical Min (1)
-        0x25, 0x08,   //     Logical Max (8)
+    // --- Mouse with Absolute Positioning ---
+    // we want mouse report to be 5 bytes long (1 byte for buttons, 2 bytes for X, 2 bytes for Y)
+    // 0x05, 0x01,  // Usage Page (Generic Desktop)
+    // 0x09, 0x02,  // Usage (Mouse)
+    // 0xA1, 0x01,  // Collection (Application)
+    //     0x85, 0x05,  // Report Id (5)
+    //     0x09, 0x01,  // Usage (Pointer)
+    //     0xA1, 0x00,  // Collection (Physical)
 
-        0x35, 0x00,   // Physical minimum (0)
-        0x46, 0x3B, 0x01, // Physical maximum (315, size 2)
-        //0x46, 0x00,   // Physical maximum (315, size 2)
-        0x95, 0x01,  // Report Count (1)
-        0x75, 0x08,  // Report Size (8)
-        0x81, 0x02,  // Input: (Data, Variable, Absolute)
-        /* 16 bit Button Map */
-          0x05, 0x09,  // Usage Page (button)
-          0x19, 0x01,  //     Usage Minimum (01) - Button 1
-          0x29, 0x20,  //     Usage Maximum (32) - Button 32
-          0x15, 0x00,   //     Logical Min (0)
-          0x25, 0x01,   //     Logical Max (1)
-          0x95, 0x20,  // Report Count (32)
-          0x75, 0x01,  // Report Size (1)
-          0x81, 0x02,  // Input: (Data, Variable, Absolute)
-        0xC0,            // End Collection
+    //         // 3 buttons (1 bit each) padded with 5 bits - 1 byte total
+    //         0x05, 0x09,  // Usage Page (Buttons)
+    //         0x19, 0x01,  // Usage Minimum (01) - Button 1
+    //         0x29, 0x03,  // Usage Maximum (03) - Button 3
+    //         0x15, 0x00,  // Logical Minimum (0)
+    //         0x25, 0x01,  // Logical Maximum (1)
+    //         0x75, 0x01,  // Report Size (1)
+    //         0x95, 0x03,  // Report Count (3)
+    //         0x81, 0x02,  // Input (Data, Variable, Absolute) - Button states
+    //         0x75, 0x05,  // Report Size (5)
+    //         0x95, 0x01,  // Report Count (1)
+    //         0x81, 0x01,  // Input (Constant) - Padding or Reserved bits
+
+    //         // absolute X, Y, 2 bytes each
+    //         0x05, 0x01,  // Usage Page (Generic Desktop)
+    //         0x09, 0x30,  // Usage (X)
+    //         0x09, 0x31,  // Usage (Y)
+    //         0x15, 0x00,        // Logical Minimum (0)
+    //         0x26, 0xFF, 0x03,  // Logical Maximum (1023)
+    //         0x75, 0x10,        // Report Size (16)
+    //         0x95, 0x02,        // Report Count (2)
+    //         0x81, 0x02,        // Input (Data, Variable, Absolute) - Absolute position
+    //     0xC0,        //   End Collection
+    // 0xC0,        // End Collection
 };
 
 void hid_kbd_rpt_set_keycode(uint8_t* rpt, uint8_t keycode);

@@ -18,7 +18,10 @@ namespace hydra {
         long x;
         long y;
         mouse_button button;
-        bool down;  // true - down, false - up
+        // true - down, false - up
+        bool down;
         short wheel_delta;
+        // true if this is a mouse move event, false if it's a button or wheel event
+        bool is_move{false};
     };
 }
