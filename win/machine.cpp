@@ -13,8 +13,6 @@ static const GUID ShellIcon =
 #define OWN_WM_NOTIFY_ICON_MESSAGE WM_APP + 1
 #define IconDisconnected L"IDI_ICON1"
 #define IconConnected L"IDI_S_CONNECTED"
-#define IconActivityKeyboard L"IDI_S_ACT_KBD"
-#define IconActivityMouse L"IDI_S_ACT_MOUSE"
 
 namespace hydra {
 
