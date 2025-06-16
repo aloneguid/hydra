@@ -51,5 +51,7 @@ jobs:
       - name: Upload firmwware (.uf2)
         uses: actions/upload-artifact@v4
         with:
-          name: picoW-firmware
+          name: hydra-pico_w
           path: ./pico/build/hydra.uf2
+          if-no-files-found: error
+          retention-days: 7
