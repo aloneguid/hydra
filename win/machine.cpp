@@ -218,8 +218,16 @@ namespace hydra {
 #if _DEBUG
         ::OutputDebugString(L"entering\n");
 
-        while(hid::is_any_key_pressed()) {
-            ::OutputDebugStringA("engaged\n");
+        vector<uint8_t> pressed;
+        while((pressed = hid::get_pressed_keys()).size() > 1) {
+            
+            // print hex codes of "pressed"
+            stringstream ss;
+            for(uint8_t vk : pressed) {
+                ss << fmt::format("{:02X} ", vk);
+            }
+            ::OutputDebugStringA(fmt::format("engaged: {}\n", ss.str()).c_str());
+
             // sleep for 100ms to avoid flooding the debug output
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }

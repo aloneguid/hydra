@@ -1,6 +1,8 @@
 #include "control.h"
 #include <thread>
 #include <numbers>
+#include <fmt/format.h>
+#include "../hid.h"
 
 namespace hydra::ui {
 
@@ -156,6 +158,15 @@ namespace hydra::ui {
         w::sl();
         if(w::button(ICON_MD_DELETE " clear", w::emphasis::error, emu_text.size() > 0)) {
             emu_text.clear();
+        }
+
+        for(uint8_t vk : machine.get_vk_down()) {
+            uint8_t sc = hid::vk_to_scancode(vk);
+            uint8_t hid1 = hid::vk_to_hid(vk);
+
+            w::sl();
+            // print hex value of the vk
+            w::label(fmt::format("VK: 0x{:02X} SCAN: 0x{:02X}, HID1: 0x{:02X}", vk, sc, hid1));
         }
 
         w::input_ml("##emu_text", emu_text, 0.0f, false, true);

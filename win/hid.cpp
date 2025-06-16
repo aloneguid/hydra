@@ -13,48 +13,48 @@ namespace hydra {
     // maps all know virtual key codes to HID codes
     std::map<uint8_t, uint8_t> hid::vk_to_hid_map = {
         // control keys
-        { VK_BACK, 0x2A },
-        { VK_TAB, 0x2B },
-        { VK_CLEAR, 0x00 },
-        { VK_RETURN, 0x28 },
-        { VK_SHIFT, 0xE1 },
-        { VK_CONTROL, 0xE0 },
-        { VK_MENU, 0xE2 },
-        { VK_PAUSE, 0x48 },
-        { VK_CAPITAL, 0x39 },   // caps lock
-        { VK_ESCAPE, 0x29 },
-        { VK_SPACE, 0x2C },
-        { VK_PRIOR, 0x4B },     // page up
-        { VK_NEXT, 0x4E },      // page down
-        { VK_END, 0x4D },
-        { VK_HOME, 0x4A },
-        { VK_LEFT, 0x50 },
-        { VK_UP, 0x52 },
-        { VK_RIGHT, 0x4F },
-        { VK_DOWN, 0x51 },
-        { VK_SELECT, 0x29 },
-        { VK_PRINT, 0x46 },
-        { VK_EXECUTE, 0x74 },
-        { VK_SNAPSHOT, 0x46 },
-        { VK_INSERT, 0x49 },
-        { VK_DELETE, 0x4C },
-        { VK_HELP, 0x75 },
-        { VK_LWIN, 0xE3 },
-        { VK_RWIN, 0xE7 },
-        { VK_APPS, 0x65 },
-        { VK_SLEEP, 0x82 },
+        { VK_BACK,      0x2A },
+        { VK_TAB,       0x2B },
+        { VK_CLEAR,     0x00 },
+        { VK_RETURN,    0x28 },
+        { VK_SHIFT,     0xE1 },
+        { VK_CONTROL,   0xE0 },
+        { VK_MENU,      0xE2 },
+        { VK_PAUSE,     0x48 },
+        { VK_CAPITAL,   0x39 }, // caps lock
+        { VK_ESCAPE,    0x29 },
+        { VK_SPACE,     0x2C },
+        { VK_PRIOR,     0x4B }, // page up
+        { VK_NEXT,      0x4E }, // page down
+        { VK_END,       0x4D },
+        { VK_HOME,      0x4A },
+        { VK_LEFT,      0x50 },
+        { VK_UP,        0x52 },
+        { VK_RIGHT,     0x4F },
+        { VK_DOWN,      0x51 },
+        { VK_SELECT,    0x29 },
+        { VK_PRINT,     0x46 },
+        { VK_EXECUTE,   0x74 },
+        { VK_SNAPSHOT,  0x46 },
+        { VK_INSERT,    0x49 },
+        { VK_DELETE,    0x4C },
+        { VK_HELP,      0x75 },
+        { VK_LWIN,      0xE3 },
+        { VK_RWIN,      0xE7 },
+        { VK_APPS,      0x65 },
+        { VK_SLEEP,     0x82 },
 
         // number row
-        { 0x30, 0x27 },     // 0
-        { 0x31, 0x1E },     // 1
-        { 0x32, 0x1F }, 
-        { 0x33, 0x20 },
-        { 0x34, 0x21 },
-        { 0x35, 0x22 },
-        { 0x36, 0x23 },
-        { 0x37, 0x24 },
-        { 0x38, 0x25 },
-        { 0x39, 0x26 },
+        { 0x30,         0x27 },     // 0
+        { 0x31,         0x1E },     // 1
+        { 0x32,         0x1F },     // 2 
+        { 0x33,         0x20 },     // 3
+        { 0x34,         0x21 },
+        { 0x35,         0x22 },
+        { 0x36,         0x23 },
+        { 0x37,         0x24 },
+        { 0x38,         0x25 },
+        { 0x39,         0x26 },     // 9
 
         // letters
         { 0x41, 0x04 },     // A
@@ -157,27 +157,29 @@ namespace hydra {
         { VK_LAUNCH_MEDIA_SELECT, 0x16 },
         { VK_LAUNCH_APP1, 0x1A },
         { VK_LAUNCH_APP2, 0x1B },
-        { VK_OEM_1, 0x33 },     // ;:
-        { VK_OEM_PLUS, 0x2E },  // =+
-        { VK_OEM_COMMA, 0x36 }, // ,<
-        { VK_OEM_MINUS, 0x2D }, // -_
-        { VK_OEM_PERIOD, 0x37 },// .>
-        { VK_OEM_2, 0x38 },     // /?
-        { VK_OEM_3, 0x35 },     // `~
-        { VK_OEM_4, 0x2F },     // [{
-        { VK_OEM_5, 0x31 },     // \|
-        { VK_OEM_6, 0x30 },     // ]}
-        { VK_OEM_7, 0x34 },     // '"
-        { VK_OEM_8, 0x27 },     // misc
-        { VK_OEM_102, 0x64 },   // <>
-        { VK_ATTN, 0x9A },
-        { VK_CRSEL, 0xA3 },
-        { VK_EXSEL, 0xA4 },
-        { VK_EREOF, 0xA5 },
-        { VK_PLAY, 0xA6 },
-        { VK_ZOOM, 0xA7 },
-        { VK_PA1, 0xA8 },
-        { VK_OEM_CLEAR, 0xA9 }
+
+        // OEM keys                    UK    HID
+        { VK_OEM_1,         0x33 }, // ;:
+        { VK_OEM_PLUS,      0x2E }, // =+
+        { VK_OEM_COMMA,     0x36 }, // ,<
+        { VK_OEM_MINUS,     0x2D }, // -_
+        { VK_OEM_PERIOD,    0x37 }, // .>
+        { VK_OEM_2,         0x38 }, // /?
+        { VK_OEM_3,         0x34 }, // '@
+        { VK_OEM_4,         0x2F }, // [{
+        { VK_OEM_5,         0x31 }, // \|
+        { VK_OEM_6,         0x30 }, // ]}
+        { VK_OEM_7,         0x32 }, // #~
+        { VK_OEM_8,         0x35 }, // `¬
+        { VK_OEM_102,       0x64 }, // <>
+        { VK_ATTN,          0x9A },
+        { VK_CRSEL,         0xA3 },
+        { VK_EXSEL,         0xA4 },
+        { VK_EREOF,         0xA5 },
+        { VK_PLAY,          0xA6 },
+        { VK_ZOOM,          0xA7 },
+        { VK_PA1,           0xA8 },
+        { VK_OEM_CLEAR,     0xA9 }
     };
 
     // maps all known typeable characters to HID codes with optional modifiers
@@ -289,15 +291,22 @@ namespace hydra {
     };
 
     uint8_t hid::vk_to_hid(uint8_t vk) {
-
-        // translate virtual key code to hid
-
         auto it = vk_to_hid_map.find(vk);
         if(it != vk_to_hid_map.end()) {
             return it->second;
         }
 
         return 0;
+    }
+
+    uint8_t hid::vk_to_scancode(uint8_t vk) {
+        // translate virtual key code to scancode
+        // using MapVirtualKeyExW with MAPVK_VK_TO_VSC
+        UINT scancode = ::MapVirtualKeyExW(vk, MAPVK_VK_TO_VSC, GetKeyboardLayout(0));
+        if (scancode == 0) {
+            return 0; // if the mapping fails, return 0
+        }
+        return static_cast<uint8_t>(scancode);
     }
 
     bool hid::char_to_hid(uint8_t ch, uint8_t& modifier, uint8_t& hid_code) {
@@ -331,6 +340,29 @@ namespace hydra {
         }
 
         return false;
+    }
+
+    std::vector<uint8_t> hid::get_pressed_keys(bool check_keyboard, bool check_mouse) {
+        vector<uint8_t> r;
+
+        if(check_keyboard) {
+            for(int vk = 0x08; vk <= 0xFE; ++vk) { // 0x08 = VK_BACK, 0xFE = last defined VK
+                SHORT state = ::GetAsyncKeyState(vk);
+                if(state & 0x8000) // high-order bit set if key is down
+                    r.push_back(vk);
+            }
+        }
+
+        if(check_mouse) {
+            // Check mouse buttons
+            if(::GetAsyncKeyState(VK_LBUTTON) & 0x8000) r.push_back(VK_LBUTTON);
+            if(::GetAsyncKeyState(VK_RBUTTON) & 0x8000) r.push_back(VK_RBUTTON);
+            if(::GetAsyncKeyState(VK_MBUTTON) & 0x8000) r.push_back(VK_MBUTTON);    
+            if(::GetAsyncKeyState(VK_XBUTTON1) & 0x8000) r.push_back(VK_XBUTTON1);
+            if(::GetAsyncKeyState(VK_XBUTTON2) & 0x8000) r.push_back(VK_XBUTTON2);
+        }
+
+        return r;
     }
 
     bool hid::set_hid_modifier(uint8_t vk, uint8_t& mod_output) {

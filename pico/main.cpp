@@ -615,7 +615,7 @@ int main() {
     device_information_service_server_init();
 
     // setup HID Device service
-    hids_device_init(0, HidReportMap, sizeof(HidReportMap));
+    hids_device_init(44, HidReportMap, sizeof(HidReportMap));
 
     // setup advertisements
     uint16_t adv_int_min = 0x0030;

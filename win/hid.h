@@ -1,5 +1,6 @@
 #pragma once
 #include <map>
+#include <vector>
 
 namespace hydra {
 
@@ -14,6 +15,8 @@ namespace hydra {
          * @return HID code corresponding to the virtual key code, or 0 if not found.
          */
         static uint8_t vk_to_hid(uint8_t vk);
+
+        static uint8_t vk_to_scancode(uint8_t vk);
 
         /**
          * @brief if the virtual key code is a modifier key, set the corresponding HID modifier output bit.
@@ -30,6 +33,8 @@ namespace hydra {
          * @return 
          */
         static bool is_any_key_pressed(bool check_keyboard = true, bool check_mouse = true);
+
+        static std::vector<uint8_t> get_pressed_keys(bool check_keyboard = true, bool check_mouse = true);
 
     private:
         static std::map<uint8_t, uint8_t> vk_to_hid_map;

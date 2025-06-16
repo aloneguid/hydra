@@ -21,6 +21,10 @@ namespace hydra {
         int key_press_delay_ms{100};
         //ble_central* active_central{nullptr}; // currently active central, if any
 
+        const std::vector<uint8_t>& get_vk_down() const {
+            return vk_down;
+        }
+
         /**
          * @brief Checks if the global hotkey is down when we are in the remote session. This needs to be checked by checking if the corresponding HID report is down.
          * @return 
