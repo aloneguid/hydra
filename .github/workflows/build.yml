@@ -1,0 +1,47 @@
+﻿name: 'Build'
+
+env:
+  VERSION: 0.0.0
+  BUILD_TYPE: Release
+  ARCH: x64
+  VCPKG_CONFIG: Release
+  VCPKG_HASH: e9d0d6fe71ec440a6a7906f92f941a181b937556
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+    branches:
+      - master
+
+  workflow_dispatch:
+
+jobs:
+  build-pico:
+    name: Pico Firmware for Hydra
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc-arm-none-eabi build-essential libnewlib-arm-none-eabi
+
+      - name: Set up Pico SDK
+        run: |
+          git clone --depth=1 https://github.com/raspberrypi/pico-sdk.git ${{ github.workspace }}/pico-sdk
+          echo "PICO_SDK_PATH=${{ github.workspace }}/pico-sdk" >> $GITHUB_ENV
+
+      - name: Configure CMake
+        working-directory: ./pico
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} -DPICO_SDK_PATH=${{ env.PICO_SDK_PATH }}
+
+      - name: Build
+        working-directory: ./pico
+        run: cmake --build build --config ${{ env.BUILD_TYPE }}  
