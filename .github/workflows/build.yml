@@ -47,3 +47,9 @@ jobs:
       - name: Build
         working-directory: ./pico
         run: cmake --build build --config ${{ env.BUILD_TYPE }}  
+
+      - name: Upload firmwware (.uf2)
+        uses: actions/upload-artifact@v4
+        with:
+          name: picoW-firmware
+          path: ./pico/build/hydra.uf2
