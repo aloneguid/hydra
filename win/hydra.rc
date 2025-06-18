@@ -1,7 +1,5 @@
 IDI_ICON1               ICON                    "res\\icon.ico"
 IDI_S_CONNECTED         ICON                    "res\\s_connected.ico"
-IDI_S_ACT_KBD           ICON                    "res\\activity_kbd.ico"
-IDI_S_ACT_MOUSE         ICON                    "res\\activity_mouse.ico"
 1 VERSIONINFO
  FILEVERSION 3,3,0,0
  PRODUCTVERSION 3,3,0,0

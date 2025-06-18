@@ -14,4 +14,4 @@ Included client for Windows is a super efficient controller that allows redirect
 
 Watch YouTube video to see this in action:
 
-todo
+[![YouTube Video](0.jpg)](https://www.youtube.com/watch?v=zSCkUKIlht8)
