@@ -1,6 +1,6 @@
 #include "machine.h"
 #include "ui/control.h"
-#include "win32/clipboard.h"
+#include "win32/os.h"
 #include "win32/shell.h"
 #include <fmt/core.h>
 #include "hid.h"
@@ -164,7 +164,7 @@ namespace hydra {
     }
 
     void machine::send_clipboard_text(int key_delay_ms) {
-        string text = win32::clipboard::get_text();
+        string text = win32::os::get_clipboard_text();
         if(text.empty()) {
             notify("Clipboard is empty.");
             return;
@@ -293,9 +293,9 @@ namespace hydra {
             } else if(id == "cfg") {
                 open_config();
             }
-        } else if(win32app.is_hotkey_message(msg, wParam, 1)) {
+        }/* else if(win32app.is_hotkey_message(msg, wParam, 1)) {
             enter();
-        }
+        }*/
 
         return 0;
     }
@@ -381,9 +381,9 @@ namespace hydra {
     void machine::win32_global_hotkey(bool install) {
         if(install) {
             //win32app.register_global_hotkey(1, 0x4B /* K */, MOD_SHIFT | MOD_WIN | MOD_NOREPEAT);
-            win32app.register_global_hotkey(1, 0, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT);
+            //win32app.register_global_hotkey(1, 0, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT);
         } else {
-            win32app.unregister_global_hotkey(1);
+            //win32app.unregister_global_hotkey(1);
         }
     }
 

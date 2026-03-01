@@ -97,13 +97,13 @@ namespace hydra::ui {
         if(w::button(ICON_MD_REFRESH)) {
             centrals_dirty = true;
         }
-        w::tooltip("Refresh centrals");
+        w::tt("Refresh centrals");
 
         w::sl();
         if(w::button(ICON_MD_LOCK)) {
             machine.enter();
         }
-        w::tooltip("Enter capture mode. To exit, press ctrl+alt.");
+        w::tt("Enter capture mode. To exit, press ctrl+alt.");
 
         w::sl();
         if(w::button(ICON_MD_DASHBOARD)) {
@@ -118,7 +118,7 @@ namespace hydra::ui {
         if(!error_message.empty()) {
             w::sl();
             w::label(ICON_MD_ERROR, w::emphasis::error);
-            w::tooltip(error_message);
+            w::tt(error_message);
         }
 
     }

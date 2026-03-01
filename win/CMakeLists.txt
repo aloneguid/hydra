@@ -15,6 +15,7 @@ file(GLOB core_src CONFIGURE_DEPENDS
     "../common/win32/serial_port.cpp"
     "../common/win32/reg.cpp"
     "../common/win32/app.cpp"
+    "../common/win32/os.cpp"
     "../common/win32/kernel.cpp"
     "../common/win32/shell.cpp"
     "../common/win32/shell_notify_icon.cpp"
