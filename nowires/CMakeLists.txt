@@ -33,9 +33,12 @@ project(hydra C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
-
 add_executable(hydra main.cpp)
+
+target_compile_definitions(hydra PRIVATE
+                WIFI_SSID=\"apex-iv\"
+                WIFI_PASSWORD=\"ratamahatta\"
+                )
 
 pico_set_program_name(hydra "hydra")
 pico_set_program_version(hydra "2.0")
@@ -44,10 +47,6 @@ pico_set_program_version(hydra "2.0")
 pico_enable_stdio_uart(hydra 1)
 pico_enable_stdio_usb(hydra 0)
 
-# Add the standard library to the build
-target_link_libraries(hydra
-        pico_stdlib)
-
 # Add the standard include files to the build
 target_include_directories(hydra PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
@@ -55,7 +54,20 @@ target_include_directories(hydra PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(hydra 
-        pico_cyw43_arch_none
+
+        # standard lib
+        pico_stdlib
+
+        # arch_none means we're not using TCP/IP stack, just onboard LED (which is part of wifi driver)
+        # pico_cyw43_arch_none
+
+        # lwIP and HTTP support (if needed - can be removed if not using lwIP or HTTP)
+        pico_cyw43_arch_lwip_threadsafe_background
+        pico_lwip_http
+        pico_lwip_mdns
+
+        # ...
+
         )
 
 pico_add_extra_outputs(hydra)

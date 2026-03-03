@@ -44,9 +44,22 @@ void led_blink(int times, int delay_ms) {
 
 class httpd {
 public:
+    bool is_connected{false};
+
     void init() {
         // Enable Wi-Fi station mode (regular Wi-Fi client)
         cyw43_arch_enable_sta_mode();
+    }
+
+    void connect() {
+        // Connect to Wi-Fi network
+        log("Connecting to Wi-Fi network: %s\n", WIFI_SSID);
+        if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 10000)) {
+            log("Failed to connect to Wi-Fi\n");
+            return;
+        }
+        log("Connected to Wi-Fi\n");
+        is_connected = true;
     }
 };
 
@@ -65,9 +78,15 @@ int main() {
 
     httpd h;
     h.init();
+    h.connect();
+
+    if(!h.is_connected) {
+        log("Not connected to Wi-Fi, exiting\n");
+        return -1;
+    }
 
     while (true) {
-        log("Hello, world!\n");
+        log("Hello, world! %s:%s\n", WIFI_SSID, WIFI_PASSWORD);
 
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
         sleep_ms(500);
