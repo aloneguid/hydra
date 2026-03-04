@@ -28,6 +28,20 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
+# read env vars for sensitive config
+set(VTAG "$ENV{COMPUTERNAME}")
+set(WIFI_SSID "$ENV{PICO_WIFI_SSID}")
+set(WIFI_PASSWORD "$ENV{PICO_WIFI_PASSWORD}")
+if(NOT VTAG)
+    set(VTAG "unknown")
+endif()
+if(NOT WIFI_SSID)
+    set(WIFI_SSID "unknown")
+endif()
+if(NOT WIFI_PASSWORD)
+    set(WIFI_PASSWORD "unknown")
+endif()
+
 project(hydra C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
@@ -36,8 +50,9 @@ pico_sdk_init()
 add_executable(hydra main.cpp)
 
 target_compile_definitions(hydra PRIVATE
-                WIFI_SSID=\"apex-iv\"
-                WIFI_PASSWORD=\"ratamahatta\"
+                WIFI_SSID="${WIFI_SSID}"
+                WIFI_PASSWORD="${WIFI_PASSWORD}"
+                VTAG="${VTAG}"
                 )
 
 pico_set_program_name(hydra "hydra")
@@ -47,9 +62,9 @@ pico_set_program_version(hydra "2.0")
 pico_enable_stdio_uart(hydra 1)
 pico_enable_stdio_usb(hydra 0)
 
-# Add the standard include files to the build
+# Add the standard include files to the build. This is required as there are "dirty" includes in the SDK that assume this is done.
 target_include_directories(hydra PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}
 )
 
 # Add any user requested libraries
@@ -65,10 +80,22 @@ target_link_libraries(hydra
         pico_cyw43_arch_lwip_threadsafe_background
         pico_lwip_http
         pico_lwip_mdns
+        pico_httpd_content
+        pico_stdlib
 
         # ...
 
         )
 
 pico_add_extra_outputs(hydra)
+
+pico_add_library(pico_httpd_content NOFLAG)
+pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
+        ${CMAKE_CURRENT_LIST_DIR}/content/404.html
+        ${CMAKE_CURRENT_LIST_DIR}/content/index.shtml
+        ${CMAKE_CURRENT_LIST_DIR}/content/test.shtml
+        ${CMAKE_CURRENT_LIST_DIR}/content/ledpass.shtml
+        ${CMAKE_CURRENT_LIST_DIR}/content/ledfail.shtml
+        ${CMAKE_CURRENT_LIST_DIR}/content/img/rpi.png.gz
+        )
 

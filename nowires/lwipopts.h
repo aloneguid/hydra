@@ -23,6 +23,6 @@
 #define LWIP_HTTPD_SSI_INCLUDE_TAG 0
 
 // Generated file containing html data
-// #define HTTPD_FSDATA_FILE "pico_fsdata.inc"
+#define HTTPD_FSDATA_FILE "pico_fsdata.inc"
 
 #endif
