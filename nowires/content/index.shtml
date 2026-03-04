@@ -17,7 +17,6 @@
 </head>
 <body>
     <h1>Hydra</h1>
-    <p class="tag" id="vtag"></p>
 
     <table class="status">
         <tr><td>Uptime</td><td id="uptime">-</td></tr>
@@ -55,7 +54,6 @@
                 $('led').textContent = d.led;
                 $('btdevs').textContent = d.bt_devices;
                 $('btadv').textContent = d.bt_adv ? 'ON' : 'OFF';
-                $('vtag').textContent = d.vtag;
             })
             .catch(function(e) { $('msg').textContent = 'poll error'; $('msg').className = 'msg err'; });
     }

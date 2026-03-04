@@ -28,33 +28,15 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-# read env vars for sensitive config
-set(VTAG "$ENV{COMPUTERNAME}")
-set(WIFI_SSID "$ENV{PICO_WIFI_SSID}")
-set(WIFI_PASSWORD "$ENV{PICO_WIFI_PASSWORD}")
-if(NOT VTAG)
-    set(VTAG "unknown")
-endif()
-if(NOT WIFI_SSID)
-    set(WIFI_SSID "unknown")
-endif()
-if(NOT WIFI_PASSWORD)
-    set(WIFI_PASSWORD "unknown")
-endif()
-
 project(hydra C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 add_executable(hydra main.cpp
+    log.cpp
+    httpd.cpp
     hid.cpp)
-
-target_compile_definitions(hydra PRIVATE
-                WIFI_SSID="${WIFI_SSID}"
-                WIFI_PASSWORD="${WIFI_PASSWORD}"
-                VTAG="${VTAG}"
-                )
 
 pico_set_program_name(hydra "hydra")
 pico_set_program_version(hydra "2.0")

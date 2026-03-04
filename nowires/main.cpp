@@ -1,13 +1,9 @@
 #include <stdio.h>
 #include <string>
+#include "log.h"
+#include "httpd.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
-
-// lwip
-#include "lwip/ip4_addr.h"
-#include "lwip/apps/mdns.h"
-#include "lwip/init.h"
-#include "lwip/apps/httpd.h"
 
 // btstack
 #include "btstack.h"
@@ -25,24 +21,9 @@ using namespace std;
  */
 
 // flags
-bool log_enabled = true;
+
 // int line_id = 0;
 absolute_time_t start_time; // when the controller has started
-
-
-// --- logging ---
-void log(const char *format, ...) {
-    if (!log_enabled) return;
-
-    // convert line_id to string and print it, padding with spaces to 4 characters
-    // printf("%d. ", line_id++);
-    printf("log: ");
-    va_list args;
-    va_start(args, format);
-    vprintf(format, args);
-    va_end(args);
-    printf("\n");
-}
 
 // --- dashboard ---
 
@@ -107,183 +88,8 @@ void led_blink_sos_forever() {
 
 // --- http ---
 
-static bool led_on = false;
-static bool bt_adv_on = false;  // tracks BT advertising state
-static string http_ip;         // WiFi IP address, set on connect
 
-static const char *cgi_handler_root(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
-    return "/index.shtml";
-}
 
-static tCGI cgi_handlers[] = {
-    { "/", cgi_handler_root },
-};
-
-// Note that the buffer size is limited by LWIP_HTTPD_MAX_TAG_INSERT_LEN, so use LWIP_HTTPD_SSI_MULTIPART to return larger amounts of data
-u16_t ssi_handler(int iIndex, char *pcInsert, int iInsertLen
-#if LWIP_HTTPD_SSI_MULTIPART
-    , uint16_t current_tag_part, uint16_t *next_tag_part
-#endif
-) {
-    size_t printed;
-    switch (iIndex) {
-        case 0: { // "uptime"
-            uint64_t uptime_s = absolute_time_diff_us(start_time, get_absolute_time()) / 1e6;
-            printed = snprintf(pcInsert, iInsertLen, "%" PRIu64, uptime_s);
-            break;
-        }
-        case 1: { // "ledst"
-            printed = snprintf(pcInsert, iInsertLen, "%s", led_on ? "ON" : "OFF");
-            break;
-        }
-        case 2: { // "btdevs"
-            printed = snprintf(pcInsert, iInsertLen, "%u", (unsigned)hid_central::size());
-            break;
-        }
-        case 3: { // "btadv"
-            printed = snprintf(pcInsert, iInsertLen, "%s", bt_adv_on ? "true" : "false");
-            break;
-        }
-        case 4: { // "ip"
-            printed = snprintf(pcInsert, iInsertLen, "%s", http_ip.c_str());
-            break;
-        }
-        case 5: { // "vtag"
-            printed = snprintf(pcInsert, iInsertLen, "%s", VTAG);
-            break;
-        }
-        default: {
-            printed = 0;
-            break;
-        }
-    }
-    return (u16_t)printed;
-}
-
-// tag names (max LWIP_HTTPD_MAX_TAG_NAME_LEN chars, default 8)
-static const char *ssi_tags[] = {
-    "uptime",   // 0
-    "ledst",    // 1
-    "btdevs",   // 2
-    "btadv",    // 3
-    "ip",       // 4
-    "vtag",     // 5
-};
-
-#if LWIP_HTTPD_SUPPORT_POST
-
-#define POST_BUF_SIZE 32
-
-err_t httpd_post_begin(void *connection, const char *uri, const char *http_request,
-        u16_t http_request_len, int content_len, char *response_uri,
-        u16_t response_uri_len, u8_t *post_auto_wnd) {
-
-    log("-> POST %s", uri);
-    // accept POSTs to /cmd
-    if (strcmp(uri, "/cmd") == 0) {
-        snprintf(response_uri, response_uri_len, "/ok.shtml");
-        *post_auto_wnd = 1;
-        return ERR_OK;
-    }
-    return ERR_VAL;
-}
-
-// Extract value for "name=value" from form-urlencoded pbuf
-static char *post_param(struct pbuf *p, const char *name, char *buf, size_t buf_len) {
-    size_t name_len = strlen(name);
-    u16_t pos = pbuf_memfind(p, name, name_len, 0);
-    if (pos == 0xFFFF) return NULL;
-    u16_t val_pos = pos + name_len;
-    u16_t end = pbuf_memfind(p, "&", 1, val_pos);
-    u16_t val_len = (end != 0xFFFF) ? (end - val_pos) : (p->tot_len - val_pos);
-    if (val_len == 0 || val_len >= buf_len) return NULL;
-    char *result = (char *)pbuf_get_contiguous(p, buf, buf_len, val_len, val_pos);
-    if (result) result[val_len] = 0;
-    return result;
-}
-
-err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
-    LWIP_ASSERT("NULL pbuf", p != NULL);
-    err_t ret = ERR_VAL;
-
-    char buf[POST_BUF_SIZE];
-    char *action = post_param(p, "action=", buf, sizeof(buf));
-    if (action) {
-        log("cmd: %s", action);
-
-        if (strcmp(action, "led_toggle") == 0) {
-            led_on = !led_on;
-            cyw43_gpio_set(&cyw43_state, 0, led_on);
-            ret = ERR_OK;
-        } else if (strcmp(action, "bt_adv_on") == 0) {
-            gap_advertisements_enable(1);
-            bt_adv_on = true;
-            ret = ERR_OK;
-        } else if (strcmp(action, "bt_adv_off") == 0) {
-            gap_advertisements_enable(0);
-            bt_adv_on = false;
-            ret = ERR_OK;
-        }
-    }
-
-    pbuf_free(p);
-    return ret;
-}
-
-void httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len) {
-    snprintf(response_uri, response_uri_len, "/ok.shtml");
-    log("<- POST done");
-}
-
-#endif
-
-class httpd {
-public:
-    bool is_connected{false};
-    int connection_attempts{0};
-    string ip4addr;
-
-    void init() {
-        // Enable Wi-Fi station mode (regular Wi-Fi client)
-        cyw43_arch_enable_sta_mode();
-
-        // set to hardcoded hostname for now, as the get_mac_ascii function is not working
-        // netif_set_hostname(&cyw43_state.netif[CYW43_ITF_STA], "hydra");
-    }
-
-    void connect() {
-        // Connect to Wi-Fi network
-        connection_attempts++;
-        log("Connecting to Wi-Fi network: %s/%s, attempt: %d", WIFI_SSID, WIFI_PASSWORD, connection_attempts);
-        int result = cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000);
-        if (result != 0) {
-            // 0 if the connection is successful.
-            // PICO_ERROR_TIMEOUT: timeout is reached before a successful connection.
-            // PICO_ERROR_BADAUTH: WiFi password is wrong.
-            // PICO_ERROR_CONNECT_FAILED: connection failed for some other reason.
-            string reason = (result == PICO_ERROR_TIMEOUT) ? "timeout" :
-                            (result == PICO_ERROR_BADAUTH) ? "bad authentication" :
-                            (result == PICO_ERROR_CONNECT_FAILED) ? "connection failed" :
-                            "unknown error";
-            log("Wi-Fi connection failed: %d (%s)", result, reason.c_str());
-            return;
-        }
-
-        ip4addr = ip4addr_ntoa(netif_ip4_addr(netif_list));
-        http_ip = ip4addr;  // store globally for SSI
-        log("Connected to Wi-Fi, IP address: %s", ip4addr.c_str());
-        is_connected = true;
-    }
-
-    void start() {
-        // setup http server
-        cyw43_arch_lwip_begin();
-        httpd_init();
-        http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
-        http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
-        cyw43_arch_lwip_end();
-    }
-};
 
 // --- bluetooth ---
 
@@ -343,7 +149,7 @@ static uint8_t send_report(hid_central& central, report_id rid) {
     switch(rid) {
         case report_id::kbd:
 
-            if(log_enabled) log("Keyboard - mod: %02x res: %02x codes (6): %02x / %02x / %02x / %02x / %02x / %02x - mode: %d / id: %d\n",
+            if(log_enabled()) log("Keyboard - mod: %02x res: %02x codes (6): %02x / %02x / %02x / %02x / %02x / %02x - mode: %d / id: %d\n",
                 hid_rpt_kbd[0], hid_rpt_kbd[1],
                 hid_rpt_kbd[2], hid_rpt_kbd[3], hid_rpt_kbd[4], hid_rpt_kbd[5], hid_rpt_kbd[6], hid_rpt_kbd[7],
                 protocol_mode, rid);
@@ -614,7 +420,7 @@ int main() {
     start_time = get_absolute_time();
     stdio_init_all();
 
-    log("---\nHydra [%s]", VTAG);
+    log("---\nHydra");
 
     // Initialise the Wi-Fi/bluetooth chip
     if (cyw43_arch_init()) {
