@@ -27,6 +27,7 @@ using namespace std;
 // flags
 bool log_enabled = true;
 // int line_id = 0;
+absolute_time_t start_time; // when the controller has started
 
 
 // --- logging ---
@@ -109,6 +110,13 @@ void led_blink_sos_forever() {
 static bool led_on = false;
 
 static const char *cgi_handler_test(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
+
+    log("GET %d, num params: %d", iIndex, iNumParams);
+    // print all parameters and values
+    for (int i = 0; i < iNumParams; i++) {
+        log("  param: %s = %s", pcParam[i], pcValue[i]);
+    }
+
     if (iNumParams > 0) {
         if (strcmp(pcParam[0], "test") == 0) {
             return "/test.shtml";
@@ -139,8 +147,8 @@ u16_t ssi_example_ssi_handler(int iIndex, char *pcInsert, int iInsertLen
             break;
         }
         case 2: { // "uptime"
-            // uint64_t uptime_s = absolute_time_diff_us(wifi_connected_time, get_absolute_time()) / 1e6;
-            // printed = snprintf(pcInsert, iInsertLen, "%"PRIu64, uptime_s);
+            uint64_t uptime_s = absolute_time_diff_us(start_time, get_absolute_time()) / 1e6;
+            printed = snprintf(pcInsert, iInsertLen, "%"PRIu64, uptime_s);
             break;
         }
         case 3: { // "ledstate"
@@ -182,18 +190,17 @@ static const char *ssi_tags[] = {
 #if LWIP_HTTPD_SUPPORT_POST
 
 #define LED_STATE_BUFSIZE 4
-static void *current_connection;
+// static void *current_connection;
 
 err_t httpd_post_begin(void *connection, const char *uri, const char *http_request,
         u16_t http_request_len, int content_len, char *response_uri,
         u16_t response_uri_len, u8_t *post_auto_wnd) {
-    if (memcmp(uri, "/led.cgi", 8) == 0 && current_connection != connection) {
-        current_connection = connection;
-        snprintf(response_uri, response_uri_len, "/ledfail.shtml");
-        *post_auto_wnd = 1;
-        return ERR_OK;
-    }
-    return ERR_VAL;
+
+    string action{uri};
+    log("-> POST %s", action.c_str());
+    snprintf(response_uri, response_uri_len, "/index.shtml");
+    *post_auto_wnd = 1;
+    return ERR_OK;
 }
 
 // Return a value for a parameter
@@ -223,25 +230,20 @@ char *httpd_param_value(struct pbuf *p, const char *param_name, char *value_buf,
 err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
     err_t ret = ERR_VAL;
     LWIP_ASSERT("NULL pbuf", p != NULL);
-    if (current_connection == connection) {
-        char buf[LED_STATE_BUFSIZE];
-        char *val = httpd_param_value(p, "led_state=", buf, sizeof(buf));
-        if (val) {
-            led_on = (strcmp(val, "ON") == 0) ? true : false;
-            cyw43_gpio_set(&cyw43_state, 0, led_on);
-            ret = ERR_OK;
-        }
+    char buf[LED_STATE_BUFSIZE];
+    char *val = httpd_param_value(p, "led_state=", buf, sizeof(buf));
+    if (val) {
+        led_on = (strcmp(val, "ON") == 0) ? true : false;
+        cyw43_gpio_set(&cyw43_state, 0, led_on);
+        ret = ERR_OK;
     }
     pbuf_free(p);
     return ret;
 }
 
 void httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len) {
-    snprintf(response_uri, response_uri_len, "/ledfail.shtml");
-    if (current_connection == connection) {
-        snprintf(response_uri, response_uri_len, "/ledpass.shtml");
-    }
-    current_connection = NULL;
+    snprintf(response_uri, response_uri_len, "/index.shtml");
+    log("<- POST: uri %s", response_uri);
 }
 
 #endif
@@ -251,7 +253,6 @@ public:
     bool is_connected{false};
     int connection_attempts{0};
     string ip4addr;
-    absolute_time_t connected_time; // when the connection was established
 
     void init() {
         // Enable Wi-Fi station mode (regular Wi-Fi client)
@@ -281,7 +282,6 @@ public:
 
         ip4addr = ip4addr_ntoa(netif_ip4_addr(netif_list));
         log("Connected to Wi-Fi, IP address: %s", ip4addr.c_str());
-        connected_time = get_absolute_time();
         is_connected = true;
     }
 
@@ -621,6 +621,7 @@ public:
 // --- main entry point ---
 
 int main() {
+    start_time = get_absolute_time();
     stdio_init_all();
 
     log("---\nHydra [%s]", VTAG);

@@ -4,7 +4,6 @@
 </head>
 <body>
     <h1>Hydra</h1>
-    <p><img src="/img/rpi.png.gz"/></p>
     <p><!--#welcome--></p>
     <p>Uptime is <!--#uptime--> seconds</p>
     <p><a href="/?test">CGI handler test</a></p>
@@ -13,6 +12,33 @@
             <input type="hidden" name="led_state" value="<!--#ledinv-->">
             <input type="submit" value="Turn led <!--#ledinv-->">
         </form>
+        <form action="/bt_adv" method="get">
+            <input type="submit" value="Start Bluetooth Advertising">
+        </form>
     </p>
+    <p>
+        <button id="apiBtn">Call Backend API</button>
+        <span id="apiStatus" style="margin-left:8px"></span>
+    </p>
+
+    <script>
+    // Replace '/api/your-endpoint' and the request body with your backend API details.
+    document.getElementById('apiBtn').addEventListener('click', function () {
+        const btn = this;
+        const status = document.getElementById('apiStatus');
+        btn.disabled = true;
+        status.textContent = 'Calling...';
+
+        fetch('/api/your-endpoint', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'toggle' })
+        })
+        .then(response => response.text())
+        .then(text => { status.textContent = text || 'OK'; })
+        .catch(err => { console.error(err); status.textContent = 'Error'; })
+        .finally(() => { btn.disabled = false; });
+    });
+    </script>
 </body>
 </html>
