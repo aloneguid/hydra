@@ -1,44 +1,81 @@
 <html>
 <head>
     <title>Hydra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 0 10px; }
+        h1 { margin-bottom: 4px; }
+        .tag { color: #888; font-size: 0.9em; }
+        .status { margin: 16px 0; }
+        .status td { padding: 4px 12px 4px 0; }
+        .status td:first-child { font-weight: bold; }
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+        button { padding: 8px 16px; font-size: 1em; cursor: pointer; }
+        .msg { color: #888; font-size: 0.85em; min-height: 1.2em; margin-top: 8px; }
+        .err { color: #c00; }
+    </style>
 </head>
 <body>
     <h1>Hydra</h1>
-    <p><!--#welcome--></p>
-    <p>Uptime is <!--#uptime--> seconds</p>
-    <p><a href="/?test">CGI handler test</a></p>
-    <p>
-        <form action="/led.cgi" method="post">
-            <input type="hidden" name="led_state" value="<!--#ledinv-->">
-            <input type="submit" value="Turn led <!--#ledinv-->">
-        </form>
-        <form action="/bt_adv" method="get">
-            <input type="submit" value="Start Bluetooth Advertising">
-        </form>
-    </p>
-    <p>
-        <button id="apiBtn">Call Backend API</button>
-        <span id="apiStatus" style="margin-left:8px"></span>
-    </p>
+    <p class="tag" id="vtag"></p>
+
+    <table class="status">
+        <tr><td>Uptime</td><td id="uptime">-</td></tr>
+        <tr><td>IP</td><td id="ip">-</td></tr>
+        <tr><td>LED</td><td id="led">-</td></tr>
+        <tr><td>BT Devices</td><td id="btdevs">-</td></tr>
+        <tr><td>BT Advertising</td><td id="btadv">-</td></tr>
+    </table>
+
+    <div class="actions">
+        <button onclick="post('led_toggle')">Toggle LED</button>
+        <button onclick="post('bt_adv_on')">BT Adv ON</button>
+        <button onclick="post('bt_adv_off')">BT Adv OFF</button>
+    </div>
+    <div class="msg" id="msg"></div>
 
     <script>
-    // Replace '/api/your-endpoint' and the request body with your backend API details.
-    document.getElementById('apiBtn').addEventListener('click', function () {
-        const btn = this;
-        const status = document.getElementById('apiStatus');
-        btn.disabled = true;
-        status.textContent = 'Calling...';
+    function $(id) { return document.getElementById(id); }
 
-        fetch('/api/your-endpoint', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'toggle' })
-        })
-        .then(response => response.text())
-        .then(text => { status.textContent = text || 'OK'; })
-        .catch(err => { console.error(err); status.textContent = 'Error'; })
-        .finally(() => { btn.disabled = false; });
-    });
+    function fmtUptime(s) {
+        if (s < 60) return s + 's';
+        if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+        var h = Math.floor(s/3600);
+        var m = Math.floor((s%3600)/60);
+        return h + 'h ' + m + 'm';
+    }
+
+    function poll() {
+        fetch('/status.shtml')
+            .then(function(r) { return r.text(); })
+            .then(function(t) {
+                var d = JSON.parse(t);
+                $('uptime').textContent = fmtUptime(d.uptime);
+                $('ip').textContent = d.ip;
+                $('led').textContent = d.led;
+                $('btdevs').textContent = d.bt_devices;
+                $('btadv').textContent = d.bt_adv ? 'ON' : 'OFF';
+                $('vtag').textContent = d.vtag;
+            })
+            .catch(function(e) { $('msg').textContent = 'poll error'; $('msg').className = 'msg err'; });
+    }
+
+    function post(action) {
+        $('msg').textContent = '...';
+        $('msg').className = 'msg';
+        fetch('/cmd', { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body: 'action=' + action })
+            .then(function(r) { return r.text(); })
+            .then(function(t) {
+                try { var d = JSON.parse(t); $('msg').textContent = d.ok ? 'OK' : ('Error: ' + d.err); }
+                catch(e) { $('msg').textContent = 'OK'; }
+                $('msg').className = 'msg';
+                poll();
+            })
+            .catch(function(e) { $('msg').textContent = 'request failed'; $('msg').className = 'msg err'; });
+    }
+
+    poll();
+    setInterval(poll, 2000);
     </script>
 </body>
 </html>

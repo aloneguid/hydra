@@ -108,142 +108,131 @@ void led_blink_sos_forever() {
 // --- http ---
 
 static bool led_on = false;
+static bool bt_adv_on = false;  // tracks BT advertising state
+static string http_ip;         // WiFi IP address, set on connect
 
-static const char *cgi_handler_test(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
-
-    log("GET %d, num params: %d", iIndex, iNumParams);
-    // print all parameters and values
-    for (int i = 0; i < iNumParams; i++) {
-        log("  param: %s = %s", pcParam[i], pcValue[i]);
-    }
-
-    if (iNumParams > 0) {
-        if (strcmp(pcParam[0], "test") == 0) {
-            return "/test.shtml";
-        }
-    }
+static const char *cgi_handler_root(int iIndex, int iNumParams, char *pcParam[], char *pcValue[]) {
     return "/index.shtml";
 }
 
 static tCGI cgi_handlers[] = {
-    { "/", cgi_handler_test },
-    { "/index.shtml", cgi_handler_test },
+    { "/", cgi_handler_root },
 };
 
 // Note that the buffer size is limited by LWIP_HTTPD_MAX_TAG_INSERT_LEN, so use LWIP_HTTPD_SSI_MULTIPART to return larger amounts of data
-u16_t ssi_example_ssi_handler(int iIndex, char *pcInsert, int iInsertLen
+u16_t ssi_handler(int iIndex, char *pcInsert, int iInsertLen
 #if LWIP_HTTPD_SSI_MULTIPART
     , uint16_t current_tag_part, uint16_t *next_tag_part
 #endif
 ) {
     size_t printed;
     switch (iIndex) {
-        case 0: { // "status"
-            printed = snprintf(pcInsert, iInsertLen, "Pass");
-            break;
-        }
-        case 1: { // "welcome"
-            printed = snprintf(pcInsert, iInsertLen, "Hello from Pico");
-            break;
-        }
-        case 2: { // "uptime"
+        case 0: { // "uptime"
             uint64_t uptime_s = absolute_time_diff_us(start_time, get_absolute_time()) / 1e6;
-            printed = snprintf(pcInsert, iInsertLen, "%"PRIu64, uptime_s);
+            printed = snprintf(pcInsert, iInsertLen, "%" PRIu64, uptime_s);
             break;
         }
-        case 3: { // "ledstate"
+        case 1: { // "ledst"
             printed = snprintf(pcInsert, iInsertLen, "%s", led_on ? "ON" : "OFF");
             break;
         }
-        case 4: { // "ledinv"
-            printed = snprintf(pcInsert, iInsertLen, "%s", led_on ? "OFF" : "ON");
+        case 2: { // "btdevs"
+            printed = snprintf(pcInsert, iInsertLen, "%u", (unsigned)hid_central::size());
             break;
         }
-#if LWIP_HTTPD_SSI_MULTIPART
-        case 5: { /* "table" */
-            printed = snprintf(pcInsert, iInsertLen, "<tr><td>This is table row number %d</td></tr>", current_tag_part + 1);
-            // Leave "next_tag_part" unchanged to indicate that all data has been returned for this tag
-            if (current_tag_part < 9) {
-                *next_tag_part = current_tag_part + 1;
-            }
+        case 3: { // "btadv"
+            printed = snprintf(pcInsert, iInsertLen, "%s", bt_adv_on ? "true" : "false");
             break;
         }
-#endif
-        default: { // unknown tag
+        case 4: { // "ip"
+            printed = snprintf(pcInsert, iInsertLen, "%s", http_ip.c_str());
+            break;
+        }
+        case 5: { // "vtag"
+            printed = snprintf(pcInsert, iInsertLen, "%s", VTAG);
+            break;
+        }
+        default: {
             printed = 0;
             break;
         }
     }
-  return (u16_t)printed;
+    return (u16_t)printed;
 }
 
-// Be aware of LWIP_HTTPD_MAX_TAG_NAME_LEN
+// tag names (max LWIP_HTTPD_MAX_TAG_NAME_LEN chars, default 8)
 static const char *ssi_tags[] = {
-    "status",
-    "welcome",
-    "uptime",
-    "ledstate",
-    "ledinv",
-    "table",
+    "uptime",   // 0
+    "ledst",    // 1
+    "btdevs",   // 2
+    "btadv",    // 3
+    "ip",       // 4
+    "vtag",     // 5
 };
 
 #if LWIP_HTTPD_SUPPORT_POST
 
-#define LED_STATE_BUFSIZE 4
-// static void *current_connection;
+#define POST_BUF_SIZE 32
 
 err_t httpd_post_begin(void *connection, const char *uri, const char *http_request,
         u16_t http_request_len, int content_len, char *response_uri,
         u16_t response_uri_len, u8_t *post_auto_wnd) {
 
-    string action{uri};
-    log("-> POST %s", action.c_str());
-    snprintf(response_uri, response_uri_len, "/index.shtml");
-    *post_auto_wnd = 1;
-    return ERR_OK;
+    log("-> POST %s", uri);
+    // accept POSTs to /cmd
+    if (strcmp(uri, "/cmd") == 0) {
+        snprintf(response_uri, response_uri_len, "/ok.shtml");
+        *post_auto_wnd = 1;
+        return ERR_OK;
+    }
+    return ERR_VAL;
 }
 
-// Return a value for a parameter
-char *httpd_param_value(struct pbuf *p, const char *param_name, char *value_buf, size_t value_buf_len) {
-    size_t param_len = strlen(param_name);
-    u16_t param_pos = pbuf_memfind(p, param_name, param_len, 0);
-    if (param_pos != 0xFFFF) {
-        u16_t param_value_pos = param_pos + param_len;
-        u16_t param_value_len = 0;
-        u16_t tmp = pbuf_memfind(p, "&", 1, param_value_pos);
-        if (tmp != 0xFFFF) {
-            param_value_len = tmp - param_value_pos;
-        } else {
-            param_value_len = p->tot_len - param_value_pos;
-        }
-        if (param_value_len > 0 && param_value_len < value_buf_len) {
-            char *result = (char *)pbuf_get_contiguous(p, value_buf, value_buf_len, param_value_len, param_value_pos);
-            if (result) {
-                result[param_value_len] = 0;
-                return result;
-            }
-        }
-    }
-    return NULL;
+// Extract value for "name=value" from form-urlencoded pbuf
+static char *post_param(struct pbuf *p, const char *name, char *buf, size_t buf_len) {
+    size_t name_len = strlen(name);
+    u16_t pos = pbuf_memfind(p, name, name_len, 0);
+    if (pos == 0xFFFF) return NULL;
+    u16_t val_pos = pos + name_len;
+    u16_t end = pbuf_memfind(p, "&", 1, val_pos);
+    u16_t val_len = (end != 0xFFFF) ? (end - val_pos) : (p->tot_len - val_pos);
+    if (val_len == 0 || val_len >= buf_len) return NULL;
+    char *result = (char *)pbuf_get_contiguous(p, buf, buf_len, val_len, val_pos);
+    if (result) result[val_len] = 0;
+    return result;
 }
 
 err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
-    err_t ret = ERR_VAL;
     LWIP_ASSERT("NULL pbuf", p != NULL);
-    char buf[LED_STATE_BUFSIZE];
-    char *val = httpd_param_value(p, "led_state=", buf, sizeof(buf));
-    if (val) {
-        led_on = (strcmp(val, "ON") == 0) ? true : false;
-        cyw43_gpio_set(&cyw43_state, 0, led_on);
-        ret = ERR_OK;
+    err_t ret = ERR_VAL;
+
+    char buf[POST_BUF_SIZE];
+    char *action = post_param(p, "action=", buf, sizeof(buf));
+    if (action) {
+        log("cmd: %s", action);
+
+        if (strcmp(action, "led_toggle") == 0) {
+            led_on = !led_on;
+            cyw43_gpio_set(&cyw43_state, 0, led_on);
+            ret = ERR_OK;
+        } else if (strcmp(action, "bt_adv_on") == 0) {
+            gap_advertisements_enable(1);
+            bt_adv_on = true;
+            ret = ERR_OK;
+        } else if (strcmp(action, "bt_adv_off") == 0) {
+            gap_advertisements_enable(0);
+            bt_adv_on = false;
+            ret = ERR_OK;
+        }
     }
+
     pbuf_free(p);
     return ret;
 }
 
 void httpd_post_finished(void *connection, char *response_uri, u16_t response_uri_len) {
-    snprintf(response_uri, response_uri_len, "/index.shtml");
-    log("<- POST: uri %s", response_uri);
+    snprintf(response_uri, response_uri_len, "/ok.shtml");
+    log("<- POST done");
 }
 
 #endif
@@ -281,6 +270,7 @@ public:
         }
 
         ip4addr = ip4addr_ntoa(netif_ip4_addr(netif_list));
+        http_ip = ip4addr;  // store globally for SSI
         log("Connected to Wi-Fi, IP address: %s", ip4addr.c_str());
         is_connected = true;
     }
@@ -290,7 +280,7 @@ public:
         cyw43_arch_lwip_begin();
         httpd_init();
         http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
-        http_set_ssi_handler(ssi_example_ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
+        http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
         cyw43_arch_lwip_end();
     }
 };
