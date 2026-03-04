@@ -339,4 +339,9 @@ void bt::adv_toggle() {
 
 void bt::update_as() {
     as.bt_central_count = hid_central::size();
+    as.bt_centrals.clear();
+    as.bt_centrals_json_array.clear();
+    for(hid_central& c: hid_central::centrals()) {
+        as.bt_centrals.push_back(app_bt_central{c.conn, c.addr, hid_central::addr_type_to_str(c.addr_t)});
+    }
 }

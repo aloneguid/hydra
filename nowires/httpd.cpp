@@ -38,7 +38,8 @@ u16_t ssi_handler(int iIndex, char *pcInsert, int iInsertLen
             break;
         }
         case 1: { // "btdevs"
-            printed = snprintf(pcInsert, iInsertLen, "%u", (unsigned)h.as.bt_central_count);
+            h.update_as_cache();
+            printed = snprintf(pcInsert, iInsertLen, "%s", h.as.bt_centrals_json_array.c_str());
             break;
         }
         case 2: { // "btadv"
@@ -164,4 +165,18 @@ void httpd::start() {
     http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
     http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
     cyw43_arch_lwip_end();
+}
+
+void httpd::update_as_cache() {
+    if(as.bt_centrals_json_array.empty()) {
+        as.bt_centrals_json_array = "[";
+        for(size_t i = 0; i < as.bt_centrals.size(); i++) {
+            const app_bt_central& c = as.bt_centrals[i];
+            as.bt_centrals_json_array += "{\"id\":" + to_string(c.id) + ", \"addr\":\"" + c.addr + "\", \"addr_type\":\"" + c.addr_type + "\"}";
+            if(i < as.bt_centrals.size() - 1) {
+                as.bt_centrals_json_array += ",";
+            }
+        }
+        as.bt_centrals_json_array += "]";
+    }
 }

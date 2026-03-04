@@ -19,6 +19,9 @@ public:
     void connect();
     void start();
 
+    // utils
+    void update_as_cache();
+
     // commands
     std::function<void()> cmd_bt_adv_toggle;
 
