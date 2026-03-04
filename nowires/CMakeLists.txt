@@ -36,6 +36,7 @@ pico_sdk_init()
 add_executable(hydra main.cpp
     log.cpp
     httpd.cpp
+    bt.cpp
     hid.cpp)
 
 pico_set_program_name(hydra "hydra")

@@ -30,26 +30,23 @@ u16_t ssi_handler(int iIndex, char *pcInsert, int iInsertLen
 #endif
 ) {
     size_t printed;
+    httpd& h = *httpd::g_httpd;
     switch (iIndex) {
         case 0: { // "uptime"
-            uint64_t uptime_s = absolute_time_diff_us(httpd::g_httpd->start_time, get_absolute_time()) / 1e6;
+            uint64_t uptime_s = absolute_time_diff_us(h.start_time, get_absolute_time()) / 1e6;
             printed = snprintf(pcInsert, iInsertLen, "%" PRIu64, uptime_s);
             break;
         }
-        case 1: { // "ledst"
-            printed = snprintf(pcInsert, iInsertLen, "%s", "todo");
-            break;
-        }
-        case 2: { // "btdevs"
+        case 1: { // "btdevs"
             printed = snprintf(pcInsert, iInsertLen, "%u", (unsigned)6);
             break;
         }
-        case 3: { // "btadv"
-            printed = snprintf(pcInsert, iInsertLen, "%s", "true");
+        case 2: { // "btadv"
+            printed = snprintf(pcInsert, iInsertLen, "%s", h.as.is_advertising ? "true" : "false");
             break;
         }
-        case 4: { // "ip"
-            printed = snprintf(pcInsert, iInsertLen, "%s", httpd::g_httpd->ip4addr.c_str());
+        case 3: { // "ip"
+            printed = snprintf(pcInsert, iInsertLen, "%s", h.ip4addr.c_str());
             break;
         }
         default: {
@@ -63,10 +60,9 @@ u16_t ssi_handler(int iIndex, char *pcInsert, int iInsertLen
 // tag names (max LWIP_HTTPD_MAX_TAG_NAME_LEN chars, default 8)
 static const char *ssi_tags[] = {
     "uptime",   // 0
-    "ledst",    // 1
-    "btdevs",   // 2
-    "btadv",    // 3
-    "ip",       // 4
+    "btdevs",   // 1
+    "btadv",    // 2
+    "ip",       // 3
 };
 
 #if LWIP_HTTPD_SUPPORT_POST
@@ -104,23 +100,15 @@ static char *post_param(struct pbuf *p, const char *name, char *buf, size_t buf_
 err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
     LWIP_ASSERT("NULL pbuf", p != NULL);
     err_t ret = ERR_VAL;
+    httpd& h = *httpd::g_httpd;
 
     char buf[POST_BUF_SIZE];
-    char *action = post_param(p, "action=", buf, sizeof(buf));
-    if (action) {
-        log("cmd: %s", action);
+    string action = post_param(p, "action=", buf, sizeof(buf));
+    log("Received POST data: action=%s", action.c_str());
 
-        if (strcmp(action, "led_toggle") == 0) {
-            // led_on = !led_on;
-            // cyw43_gpio_set(&cyw43_state, 0, led_on);
-            ret = ERR_OK;
-        } else if (strcmp(action, "bt_adv_on") == 0) {
-            // gap_advertisements_enable(1);
-            // bt_adv_on = true;
-            ret = ERR_OK;
-        } else if (strcmp(action, "bt_adv_off") == 0) {
-            // gap_advertisements_enable(0);
-            // bt_adv_on = false;
+    if(action == "bt_adv_toggle") {
+        if(h.cmd_bt_adv_toggle) {
+            h.cmd_bt_adv_toggle();
             ret = ERR_OK;
         }
     }

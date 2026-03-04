@@ -1,0 +1,31 @@
+#pragma once
+#include "pico/stdlib.h"
+#include "model.h"
+
+// btstack
+#include "btstack.h"
+#include "ble/gatt-service/battery_service_server.h"
+#include "ble/gatt-service/device_information_service_server.h"
+#include "ble/gatt-service/hids_device.h"
+#include "device.h" // generated from .gatt by GATT compiler
+#include "hid.h"
+
+class bt {
+public:
+    uint8_t battery = 95;
+    app_state& as;
+
+    bt(app_state& as) : as(as) {}
+
+    void init();
+    void start();
+
+    bool adv() const {
+        return is_advertising;
+    }
+    void adv_toggle();
+
+private:
+    bool is_advertising{false};
+
+};
