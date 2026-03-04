@@ -1,9 +1,9 @@
 <html>
 <head>
-    <title>Pico httpd example</title>
+    <title>Hydra</title>
 </head>
 <body>
-    <h1>Pico httpd example</h1>
+    <h1>Hydra</h1>
     <p><img src="/img/rpi.png.gz"/></p>
     <p><!--#welcome--></p>
     <p>Uptime is <!--#uptime--> seconds</p>

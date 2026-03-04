@@ -47,7 +47,8 @@ project(hydra C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-add_executable(hydra main.cpp)
+add_executable(hydra main.cpp
+    hid.cpp)
 
 target_compile_definitions(hydra PRIVATE
                 WIFI_SSID="${WIFI_SSID}"
@@ -67,6 +68,8 @@ target_include_directories(hydra PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
 )
 
+pico_btstack_make_gatt_header(hydra PRIVATE "${CMAKE_CURRENT_LIST_DIR}/device.gatt")
+
 # Add any user requested libraries
 target_link_libraries(hydra 
 
@@ -83,7 +86,14 @@ target_link_libraries(hydra
         pico_httpd_content
         pico_stdlib
 
-        # ...
+        # btstack
+        pico_btstack_ble
+        pico_btstack_cyw43
+
+        # other
+        hardware_adc
+        hardware_flash
+        hardware_sync
 
         )
 
