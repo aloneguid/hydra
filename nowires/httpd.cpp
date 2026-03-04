@@ -38,7 +38,7 @@ u16_t ssi_handler(int iIndex, char *pcInsert, int iInsertLen
             break;
         }
         case 1: { // "btdevs"
-            printed = snprintf(pcInsert, iInsertLen, "%u", (unsigned)6);
+            printed = snprintf(pcInsert, iInsertLen, "%u", (unsigned)h.as.bt_central_count);
             break;
         }
         case 2: { // "btadv"

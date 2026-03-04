@@ -14,8 +14,9 @@ class bt {
 public:
     uint8_t battery = 95;
     app_state& as;
+    static bt* g_bt;
 
-    bt(app_state& as) : as(as) {}
+    bt(app_state& as);
 
     void init();
     void start();
@@ -24,6 +25,8 @@ public:
         return is_advertising;
     }
     void adv_toggle();
+
+    void update_as();
 
 private:
     bool is_advertising{false};

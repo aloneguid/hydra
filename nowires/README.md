@@ -2,24 +2,15 @@ Experimental, purely wireless Hydra firmware with not even a single wire (other 
 
 ## Wi-Fi config
 
-Use env vars. For VS Code, edit `.vscode/cmake-kits.json`:
+Define WIFI_SSID and WIFI_PASSWORD in `secrets.h` (.gitignore'd):
 
-```json
-[
-    {
-        "name": "Pico",
-        "compilers": {
-            "C": "${command:raspberry-pi-pico.getCompilerPath}",
-            "CXX": "${command:raspberry-pi-pico.getCxxCompilerPath}"
-        },
-        "environmentVariables": {
-            "PATH": "${command:raspberry-pi-pico.getEnvPath};${env:PATH}",
-            "PICO_WIFI_SSID": "your ssid here",
-            "PICO_WIFI_PASSWORD": "your password here"
-        },
-        "cmakeSettings": {
-            "Python3_EXECUTABLE": "${command:raspberry-pi-pico.getPythonPath}"
-        }
-    }
-]
+```cpp
+#pragma once
+
+#define WIFI_SSID "..."
+#define WIFI_PASSWORD "..."
 ```
+
+## Todo
+
+- app state should contain list of devices, and status.shtml should return json doc of devices instead of count.
