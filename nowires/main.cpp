@@ -108,6 +108,22 @@ int main() {
         b.adv_toggle();
     };
 
+    h.cmd_bt_central_activate = [&b](uint16_t central_id) {
+        b.activate_central(central_id);
+        b.update_as();
+    };
+
+    h.cmd_type = [&b](const string& text) {
+        log("Received text to type: %s", text.c_str());
+        b.send_key_press(0x17);
+
+        // press 't'
+        // hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0x17);
+        // submit(report_id::kbd);
+        // hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0);
+        // submit(report_id::kbd);
+    };
+
     while (true) {
 
 #if PICO_CYW43_ARCH_POLL

@@ -24,6 +24,8 @@ public:
 
     // commands
     std::function<void()> cmd_bt_adv_toggle;
+    std::function<void(uint16_t central_id)> cmd_bt_central_activate;
+    std::function<void(const std::string& text)> cmd_type;
 
 private:
 };

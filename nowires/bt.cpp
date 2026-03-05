@@ -337,11 +337,56 @@ void bt::adv_toggle() {
     as.is_advertising = is_advertising;
 }
 
+bool bt::activate_central(uint16_t central_id) {
+    bool found = false;
+    for(auto& hc : hid_central::centrals()) {
+        if(hc.conn == central_id) {
+            hid_central::current(hc);
+            found = true;
+            break;
+        }
+    }
+    return found;
+}
+
 void bt::update_as() {
     as.bt_central_count = hid_central::size();
     as.bt_centrals.clear();
     as.bt_centrals_json_array.clear();
     for(hid_central& c: hid_central::centrals()) {
-        as.bt_centrals.push_back(app_bt_central{c.conn, c.addr, hid_central::addr_type_to_str(c.addr_t)});
+        bool is_active = (c.conn == hid_central::current().conn);
+        as.bt_centrals.push_back(app_bt_central{c.conn, is_active, c.addr, hid_central::addr_type_to_str(c.addr_t)});
     }
+}
+
+static void submit(report_id rid) {
+    hid_central& central = hid_central::current();
+    if(!central) {
+        if(log_enabled) log("No current central, cannot send report");
+        return; // no current central
+    }
+
+    // request to send a report, this will trigger the HIDS_SUBEVENT_CAN_SEND_NOW event when bluetooth stack is ready
+    hid_rpt_to_send = rid; // set the report to send
+    uint8_t status = hids_device_request_can_send_now_event(central.conn);
+    if(status != ERROR_CODE_SUCCESS) {
+        if(log_enabled) log("Error requesting can send now event: %02x", status);
+        hid_rpt_to_send = rid; // set the report to send
+        return; // error requesting can send now event
+    }
+
+    // wait until the report is sent (hid_rpt_to_send is set to report_id::none)
+    while(hid_rpt_to_send != report_id::none) {
+        if(log_enabled) log("Waiting for report %u to be sent...", static_cast<uint16_t>(rid));
+    }
+
+    if(log_enabled) log("Report %u sent", static_cast<uint16_t>(rid));
+}
+
+
+void bt::send_key_press(uint8_t keycode) {
+    hid_kbd_rpt_set_keycode(hid_rpt_kbd, keycode);
+    submit(report_id::kbd);
+    hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0);
+    submit(report_id::kbd);
 }

@@ -25,8 +25,12 @@ public:
         return is_advertising;
     }
     void adv_toggle();
+    bool activate_central(uint16_t central_id);
 
     void update_as();
+
+    // HID utils
+    void send_key_press(uint8_t keycode);
 
 private:
     bool is_advertising{false};

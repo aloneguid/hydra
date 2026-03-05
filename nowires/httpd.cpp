@@ -112,6 +112,23 @@ err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
             h.cmd_bt_adv_toggle();
             ret = ERR_OK;
         }
+    } else if(action == "bt_central_activate") {
+        string id_str = post_param(p, "value=", buf, sizeof(buf));
+        log("Central ID to activate: %s", id_str.c_str());
+        if(!id_str.empty()) {
+            uint16_t central_id = (uint16_t)strtoul(id_str.c_str(), NULL, 10);
+            if(h.cmd_bt_central_activate) {
+                h.cmd_bt_central_activate(central_id);
+                ret = ERR_OK;
+            }
+        }
+    } else if(action == "type") {
+        string text = post_param(p, "value=", buf, sizeof(buf));
+        log("Received text input: %s", text.c_str());
+        if(!text.empty() && h.cmd_type) {
+            h.cmd_type(text);
+            ret = ERR_OK;
+        }
     }
 
     pbuf_free(p);
@@ -172,7 +189,7 @@ void httpd::update_as_cache() {
         as.bt_centrals_json_array = "[";
         for(size_t i = 0; i < as.bt_centrals.size(); i++) {
             const app_bt_central& c = as.bt_centrals[i];
-            as.bt_centrals_json_array += "{\"id\":" + to_string(c.id) + ", \"addr\":\"" + c.addr + "\", \"addr_type\":\"" + c.addr_type + "\"}";
+            as.bt_centrals_json_array += "{\"id\":" + to_string(c.id) + ",\"is_active\":" + (c.is_active ? "true" : "false") + ",\"addr\":\"" + c.addr + "\",\"addr_type\":\"" + c.addr_type + "\"}";
             if(i < as.bt_centrals.size() - 1) {
                 as.bt_centrals_json_array += ",";
             }
