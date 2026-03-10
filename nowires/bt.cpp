@@ -29,6 +29,83 @@ static btstack_packet_callback_registration_t sm_event_callback_registration;
 static uint8_t battery = 95;
 static uint8_t protocol_mode = 1;
 
+// --- Remote device name discovery via GATT client ---
+
+static void gatt_name_query_handler(uint8_t packet_type, uint16_t channel, uint8_t* packet, uint16_t size) {
+    UNUSED(packet_type);
+    UNUSED(channel);
+    UNUSED(size);
+
+    uint8_t event_type = hci_event_packet_get_type(packet);
+    hci_con_handle_t conn = HCI_CON_HANDLE_INVALID;
+
+    switch (event_type) {
+        case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
+            conn = gatt_event_characteristic_value_query_result_get_handle(packet);
+            break;
+        case GATT_EVENT_QUERY_COMPLETE:
+            conn = gatt_event_query_complete_get_handle(packet);
+            break;
+        default:
+            return;
+    }
+
+    hid_central* c = hid_central::find(conn);
+    if (!c) return;
+
+    if (event_type == GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT) {
+        uint16_t len = gatt_event_characteristic_value_query_result_get_value_length(packet);
+        const uint8_t* val = gatt_event_characteristic_value_query_result_get_value(packet);
+        string name(reinterpret_cast<const char*>(val), len);
+        while (!name.empty() && name.back() == '\0') name.pop_back();
+        hid_central::set_name(conn, name);
+        if (log_enabled()) log("Remote device name for %u: %s", conn, name.c_str());
+        bt::g_bt->update_as();
+    } else if (event_type == GATT_EVENT_QUERY_COMPLETE) {
+        uint8_t att_status = gatt_event_query_complete_get_att_status(packet);
+        if (att_status != ATT_ERROR_SUCCESS) {
+            c->nq_state = hid_central::name_query_state::failed;
+            if (log_enabled()) log("Name query: failed on %u, status 0x%02x", conn, att_status);
+        } else {
+            c->nq_state = hid_central::name_query_state::done;
+        }
+    }
+}
+
+static void start_name_query(hci_con_handle_t conn) {
+    hid_central* c = hid_central::find(conn);
+    if (!c || !c->name.empty()) return;
+    c->nq_state = hid_central::name_query_state::reading;
+    uint8_t status = gatt_client_read_value_of_characteristics_by_uuid16(
+        gatt_name_query_handler, conn, 0x0001, 0xffff,
+        ORG_BLUETOOTH_CHARACTERISTIC_GAP_DEVICE_NAME);
+    if (status != ERROR_CODE_SUCCESS) {
+        c->nq_state = hid_central::name_query_state::failed;
+        if (log_enabled()) log("Name query: failed to start for %u, status 0x%02x", conn, status);
+    }
+}
+
+static btstack_timer_source_t name_query_timers[BRPI_MAX_BT_CONNECTIONS];
+
+static void name_query_timer_handler(btstack_timer_source_t* ts) {
+    hci_con_handle_t conn = (hci_con_handle_t)(uintptr_t)btstack_run_loop_get_timer_context(ts);
+    start_name_query(conn);
+}
+
+static void schedule_name_query(hci_con_handle_t conn, uint32_t delay_ms) {
+    // find a free timer slot
+    for (int i = 0; i < BRPI_MAX_BT_CONNECTIONS; i++) {
+        if (name_query_timers[i].timeout == 0) {
+            btstack_run_loop_set_timer_handler(&name_query_timers[i], name_query_timer_handler);
+            btstack_run_loop_set_timer_context(&name_query_timers[i], (void*)(uintptr_t)conn);
+            btstack_run_loop_set_timer(&name_query_timers[i], delay_ms);
+            btstack_run_loop_add_timer(&name_query_timers[i]);
+            return;
+        }
+    }
+    if (log_enabled()) log("Name query: no free timer slot for %u", conn);
+}
+
 const uint8_t adv_data[] = {
     // Flags general discoverable, BR/EDR not supported
     0x02, BLUETOOTH_DATA_TYPE_FLAGS, 0x06,
@@ -183,6 +260,16 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
             break;
         }
 
+        case HCI_EVENT_ENCRYPTION_CHANGE: {
+            hci_con_handle_t enc_conn = hci_event_encryption_change_get_connection_handle(packet);
+            if (hci_event_encryption_change_get_encryption_enabled(packet)) {
+                if (log_enabled()) log("Encryption enabled on %u", enc_conn);
+                // delay name query to let central finish its own GATT discovery first
+                schedule_name_query(enc_conn, 2000);
+            }
+            break;
+        }
+
         case L2CAP_EVENT_CONNECTION_PARAMETER_UPDATE_RESPONSE:
             if(log_enabled()) log("L2CAP Connection Parameter Update Complete, response: %x", l2cap_event_connection_parameter_update_response_get_result(packet));
             break;
@@ -213,7 +300,7 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                         log("       dev: %u < %u", hid_central::size(), BRPI_MAX_BT_CONNECTIONS);
                     }
 
-                    // gatt_client_discover_primary_services_by_uuid16(packet_handler, conn, ORG_BLUETOOTH_SERVICE_GENERIC_ACCESS);
+
                 }
                                                         break;
                 case HCI_SUBEVENT_LE_CONNECTION_UPDATE_COMPLETE: {
@@ -302,6 +389,9 @@ void bt::init() {
     sm_init();
     sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
     sm_set_authentication_requirements(SM_AUTHREQ_SECURE_CONNECTION | SM_AUTHREQ_BONDING);
+
+    // setup GATT client (for reading remote device names)
+    gatt_client_init();
 
     // setup ATT server
     att_server_init(profile_data, NULL, NULL);

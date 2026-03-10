@@ -30,13 +30,37 @@ hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, 
         }
     }
 
-    hid_central new_central{handle, "todo", saddr, addr_type};
+    hid_central new_central;
+    new_central.conn = handle;
+    new_central.addr = saddr;
+    new_central.addr_t = addr_type;
+
+    auto it = addr_to_user_name.find(saddr);
+    if (it != addr_to_user_name.end()) {
+        new_central.name = it->second;
+    }
+
     _centrals.push_back(new_central);
 
     if(_centrals.size() == 1) {
-        cc = new_central; // set current connection handle to the newly connected device if this is the first connection
+        cc = new_central;
     }
     return new_central;
+}
+
+hid_central* hid_central::find(hci_con_handle_t handle) {
+    for (auto& c : _centrals) {
+        if (c.conn == handle) return &c;
+    }
+    return nullptr;
+}
+
+void hid_central::set_name(hci_con_handle_t handle, const std::string& name) {
+    hid_central* c = find(handle);
+    if (!c) return;
+    c->name = name;
+    addr_to_user_name[c->addr] = name;
+    if (cc.conn == handle) cc.name = name;
 }
 
 hid_central& hid_central::current() {
