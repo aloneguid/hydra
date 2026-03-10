@@ -30,7 +30,7 @@ hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, 
         }
     }
 
-    hid_central new_central{handle, saddr, addr_type};
+    hid_central new_central{handle, "todo", saddr, addr_type};
     _centrals.push_back(new_central);
 
     if(_centrals.size() == 1) {

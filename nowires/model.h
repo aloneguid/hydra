@@ -4,6 +4,7 @@
 
 struct app_bt_central {
     uint16_t id;
+    std::string name;
     bool is_active;
     std::string addr;
     std::string addr_type;

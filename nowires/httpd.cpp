@@ -194,7 +194,13 @@ void httpd::update_as_cache() {
         as.bt_centrals_json_array = "[";
         for(size_t i = 0; i < as.bt_centrals.size(); i++) {
             const app_bt_central& c = as.bt_centrals[i];
-            as.bt_centrals_json_array += "{\"id\":" + to_string(c.id) + ",\"is_active\":" + (c.is_active ? "true" : "false") + ",\"addr\":\"" + c.addr + "\",\"addr_type\":\"" + c.addr_type + "\"}";
+            as.bt_centrals_json_array +=
+                "{\"id\":" + to_string(c.id) +
+                ",\"name\":\"" + c.name + "\"" +
+                ",\"is_active\":" + (c.is_active ? "true" : "false") +
+                ",\"addr\":\"" + c.addr +
+                "\",\"addr_type\":\"" + c.addr_type +
+                "\"}";
             if(i < as.bt_centrals.size() - 1) {
                 as.bt_centrals_json_array += ",";
             }

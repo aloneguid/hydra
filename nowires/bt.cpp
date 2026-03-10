@@ -371,7 +371,7 @@ void bt::update_as() {
     as.bt_centrals_json_array.clear();
     for(hid_central& c: hid_central::centrals()) {
         bool is_active = (c.conn == hid_central::current().conn);
-        as.bt_centrals.push_back(app_bt_central{c.conn, is_active, c.addr, hid_central::addr_type_to_str(c.addr_t)});
+        as.bt_centrals.push_back(app_bt_central{c.conn, c.name, is_active, c.addr, hid_central::addr_type_to_str(c.addr_t)});
     }
 }
 

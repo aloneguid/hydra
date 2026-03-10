@@ -143,6 +143,7 @@ void hid_kbd_rpt_mouse_up(uint8_t* rpt);
 class hid_central {
     public:
         hci_con_handle_t conn{ HCI_CON_HANDLE_INVALID };
+        std::string name;
         std::string addr;
         uint8_t addr_t;
         std::string irk; // Identity Resolving Key, used for resolving random addresses
