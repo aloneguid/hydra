@@ -172,15 +172,13 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
 
             if(addr_type == BD_ADDR_TYPE_LE_RANDOM && resolved_addr_type == BD_ADDR_TYPE_LE_PUBLIC) {
                 hid_central::add_address_mapping(addr_s, resolved_addr_s);
+                // print address and resolved address and their types
+                if(log_enabled()) {
+                    log("Identity Resolving Succeeded:");
+                    log("           addr: %s (%s)", addr_s.c_str(), hid_central::addr_type_to_str(addr_type).c_str());
+                    log("  resolved addr: %s (%s)", resolved_addr_s.c_str(), hid_central::addr_type_to_str(resolved_addr_type).c_str());
+                }
             }
-
-            // print address and resolved address and their types
-            if(log_enabled()) {
-                log("Identity Resolving Succeeded:");
-                log("           addr: %s (%s)", addr_s.c_str(), hid_central::addr_type_to_str(addr_type).c_str());
-                log("  resolved addr: %s (%s)", resolved_addr_s.c_str(), hid_central::addr_type_to_str(resolved_addr_type).c_str());
-            }
-
             break;
         }
 

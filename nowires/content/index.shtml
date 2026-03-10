@@ -42,7 +42,7 @@
     </table>
 
     <div class="actions">
-        <button onclick="post('led_toggle')">Toggle LED</button>
+        <button onclick="post('reboot')">Reboot</button>
         <button onclick="post('bt_adv_toggle')">Toggle BT Advertising</button>
     </div>
 

@@ -59,6 +59,14 @@ vector<hid_central>& hid_central::centrals() {
 
 void hid_central::add_address_mapping(const std::string& random_addr, const std::string& public_addr) {
     random_to_public_addr[random_addr] = public_addr;
+
+    // check if any existing central has this random address, and if so update it to use the public address
+    for (auto& hc : _centrals) {
+        if (hc.addr == random_addr) {
+            hc.addr = public_addr;
+            hc.addr_t = BD_ADDR_TYPE_LE_PUBLIC;
+        }
+    }
 }
 
 void hid_kbd_rpt_set_keycode(uint8_t* report, uint8_t keycode) {

@@ -129,6 +129,11 @@ err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
             h.cmd_type(text);
             ret = ERR_OK;
         }
+    } else if(action == "reboot") {
+        if(h.cmd_reboot) {
+            h.cmd_reboot();
+            ret = ERR_OK;
+        }
     }
 
     pbuf_free(p);

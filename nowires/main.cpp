@@ -5,6 +5,7 @@
 #include "bt.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "hardware/watchdog.h"
 
 using namespace std;
 
@@ -122,6 +123,12 @@ int main() {
         // submit(report_id::kbd);
         // hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0);
         // submit(report_id::kbd);
+    };
+
+    h.cmd_reboot = []() {
+        log("Rebooting...");
+        sleep_ms(1000);
+        watchdog_reboot(0, 0, 0);
     };
 
     while (true) {
