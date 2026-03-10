@@ -172,6 +172,7 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
 
             if(addr_type == BD_ADDR_TYPE_LE_RANDOM && resolved_addr_type == BD_ADDR_TYPE_LE_PUBLIC) {
                 hid_central::add_address_mapping(addr_s, resolved_addr_s);
+                bt::g_bt->update_as();
                 // print address and resolved address and their types
                 if(log_enabled()) {
                     log("Identity Resolving Succeeded:");
@@ -211,6 +212,8 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                         // hci_send_cmd(&hci_le_set_scan_enable, 1);
                         log("       dev: %u < %u", hid_central::size(), BRPI_MAX_BT_CONNECTIONS);
                     }
+
+                    // gatt_client_discover_primary_services_by_uuid16(packet_handler, conn, ORG_BLUETOOTH_SERVICE_GENERIC_ACCESS);
                 }
                                                         break;
                 case HCI_SUBEVENT_LE_CONNECTION_UPDATE_COMPLETE: {
@@ -254,6 +257,21 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                     break;
             }
             break;
+
+
+        // case GATT_EVENT_SERVICE_QUERY_RESULT:
+        //     if(log_enabled()) {
+        //         log("!!!!!!GATT Service Query Result:");
+        //         gatt_client_service_t service;
+        //         gatt_event_service_query_result_get_service(packet, &service);
+
+        //         log("  handle: %u", gatt_event_service_query_result_get_handle(packet));
+        //     }
+        //     break;
+
+        // case GATT_EVENT_QUERY_COMPLETE:
+        //     if(log_enabled()) log("GATT Event Complete, status: %u", gatt_event_query_complete_get_att_status(packet));
+        //     break;
 
         // response to hci_send_cmd(&hci_read_rssi, central.conn);
         /*case GAP_EVENT_RSSI_MEASUREMENT: {
