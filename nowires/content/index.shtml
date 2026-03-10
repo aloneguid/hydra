@@ -86,9 +86,10 @@
                     tbody.innerHTML = centrals.map(function(c) {
                         var addr = c.addr + (c.addr_type === 'random' ? ' (random)' : '');
                         var name = c.name || '';
-                        var actionCell = c.is_active
+                        var actionCell = (c.is_active
                             ? '<span style="color:#2b7a2b; font-size:0.9em;">active</span>'
-                            : '<a href="#" onclick="post(\'bt_central_activate\', ' + c.id + '); return false;">activate</a>';
+                            : '<a href="#" onclick="post(\'bt_central_activate\', ' + c.id + '); return false;">activate</a>')
+                            + ' <a href="#" onclick="if(confirm(\'Unpair this device?\')) post(\'bt_central_unpair\', ' + c.id + '); return false;" style="color:#c00; font-size:0.9em;">unpair</a>';
                         return '<tr style="border: 1px solid #ccc;">' +
                             '<td style="border: 1px solid #ccc; padding: 8px;">' + c.id + '</td>' +
                             '<td style="border: 1px solid #ccc; padding: 8px;">' + name + '</td>' +

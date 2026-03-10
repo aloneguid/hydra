@@ -114,6 +114,10 @@ int main() {
         b.update_as();
     };
 
+    h.cmd_bt_central_unpair = [&b](uint16_t central_id) {
+        b.unpair_central(central_id);
+    };
+
     h.cmd_type = [&b](const string& text) {
         log("Received text to type: %s", text.c_str());
         b.send_key_press(0x17);

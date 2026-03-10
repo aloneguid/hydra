@@ -1,6 +1,9 @@
 #ifndef _LWIPOPTS_H
 #define _LWIPOPTS_H
 
+// single SSI tag size limit (default is 192)
+#define LWIP_HTTPD_MAX_TAG_INSERT_LEN 1024
+
 // Generally you would define your own explicit list of lwIP options
 // (see https://www.nongnu.org/lwip/2_1_x/group__lwip__opts.html)
 //

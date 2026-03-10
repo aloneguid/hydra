@@ -26,6 +26,7 @@ public:
     }
     void adv_toggle();
     bool activate_central(uint16_t central_id);
+    void unpair_central(uint16_t central_id);
 
     void update_as();
 

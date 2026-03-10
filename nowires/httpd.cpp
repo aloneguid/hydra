@@ -122,6 +122,16 @@ err_t httpd_post_receive_data(void *connection, struct pbuf *p) {
                 ret = ERR_OK;
             }
         }
+    } else if(action == "bt_central_unpair") {
+        string id_str = post_param(p, "value=", buf, sizeof(buf));
+        log("Central ID to unpair: %s", id_str.c_str());
+        if(!id_str.empty()) {
+            uint16_t central_id = (uint16_t)strtoul(id_str.c_str(), NULL, 10);
+            if(h.cmd_bt_central_unpair) {
+                h.cmd_bt_central_unpair(central_id);
+                ret = ERR_OK;
+            }
+        }
     } else if(action == "type") {
         string text = post_param(p, "value=", buf, sizeof(buf));
         log("Received text input: %s", text.c_str());
@@ -194,15 +204,23 @@ void httpd::update_as_cache() {
         as.bt_centrals_json_array = "[";
         for(size_t i = 0; i < as.bt_centrals.size(); i++) {
             const app_bt_central& c = as.bt_centrals[i];
-            as.bt_centrals_json_array +=
-                "{\"id\":" + to_string(c.id) +
-                ",\"name\":\"" + c.name + "\"" +
-                ",\"is_active\":" + (c.is_active ? "true" : "false") +
-                ",\"addr\":\"" + c.addr +
-                "\",\"addr_type\":\"" + c.addr_type +
-                "\"}";
+
+            string elem = "{";
+            elem += "\"id\":" + to_string(c.id);
+            elem += ",";
+            elem += "\"name\":\"" + c.name + "\"";
+            elem += ",";
+            elem += "\"is_active\":" + string(c.is_active ? "true" : "false");
+            elem += ",";
+            elem += "\"addr\":\"" + c.addr + "\"";
+            elem += ",";
+            elem += "\"addr_type\":\"" + c.addr_type + "\"";
+            elem += "}";
+
+            as.bt_centrals_json_array += elem;
+
             if(i < as.bt_centrals.size() - 1) {
-                as.bt_centrals_json_array += ",";
+                as.bt_centrals_json_array += ",\n";
             }
         }
         as.bt_centrals_json_array += "]";

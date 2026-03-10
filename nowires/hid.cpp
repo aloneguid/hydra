@@ -18,6 +18,35 @@ void hid_central::disconnect(hci_con_handle_t handle) {
         [handle](const hid_central& hc) { return hc.conn == handle; }), _centrals.end());
 }
 
+void hid_central::unpair(hci_con_handle_t handle) {
+    hid_central* c = find(handle);
+    if (!c) return;
+
+    std::string target_addr = c->addr;
+
+    // disconnect the BLE link
+    gap_disconnect(handle);
+
+    // remove from le_device_db by matching address
+    for (int i = 0; i < le_device_db_max_count(); i++) {
+        bd_addr_t db_addr;
+        int db_addr_type;
+        sm_key_t irk;
+        le_device_db_info(i, &db_addr_type, db_addr, irk);
+        if (db_addr_type == BD_ADDR_TYPE_UNKNOWN) continue;
+        if (bd_addr_to_str(db_addr) == target_addr) {
+            le_device_db_remove(i);
+            break;
+        }
+    }
+
+    // remove cached name
+    addr_to_user_name.erase(target_addr);
+
+    // disconnect handles internal list cleanup
+    disconnect(handle);
+}
+
 hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type) {
     string saddr = bd_addr_to_str(addr);
 

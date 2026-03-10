@@ -455,6 +455,14 @@ bool bt::activate_central(uint16_t central_id) {
     return found;
 }
 
+void bt::unpair_central(uint16_t central_id) {
+    hid_central* c = hid_central::find(central_id);
+    if (!c) return;
+    log("Unpairing central %u (%s)", central_id, c->addr.c_str());
+    hid_central::unpair(central_id);
+    update_as();
+}
+
 void bt::update_as() {
     as.bt_central_count = hid_central::size();
     as.bt_centrals.clear();

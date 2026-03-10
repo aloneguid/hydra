@@ -160,6 +160,7 @@ class hid_central {
 
         // globals
         static void disconnect(hci_con_handle_t handle);
+        static void unpair(hci_con_handle_t handle);
         static hid_central connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type);
         static hid_central* find(hci_con_handle_t handle);
         static hid_central& current();
