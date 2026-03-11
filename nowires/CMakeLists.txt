@@ -36,6 +36,7 @@ pico_sdk_init()
 add_executable(hydra main.cpp
     log.cpp
     httpd.cpp
+    websocket.cpp
     bt.cpp
     hid.cpp)
 
@@ -85,8 +86,6 @@ pico_add_extra_outputs(hydra)
 pico_add_library(pico_httpd_content NOFLAG)
 pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
         ${CMAKE_CURRENT_LIST_DIR}/content/404.html
-        ${CMAKE_CURRENT_LIST_DIR}/content/index.shtml
-        ${CMAKE_CURRENT_LIST_DIR}/content/status.shtml
-        ${CMAKE_CURRENT_LIST_DIR}/content/ok.shtml
+        ${CMAKE_CURRENT_LIST_DIR}/content/index.html
         )
 

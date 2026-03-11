@@ -1,0 +1,158 @@
+<html>
+<head>
+    <title>HydraW</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 0 10px; }
+        h1 { margin-bottom: 4px; }
+        .status td { padding: 4px 12px 4px 0; }
+        .status td:first-child { font-weight: bold; }
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+        .control { margin: 20px 0; }
+        .control textarea { width: 100%; min-height: 120px; box-sizing: border-box; padding: 10px; font: inherit; resize: vertical; }
+        .control-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
+        button { padding: 8px 16px; font-size: 1em; cursor: pointer; }
+        .msg { color: #888; font-size: 0.85em; min-height: 1.2em; margin-top: 8px; }
+        .err { color: #c00; }
+    </style>
+</head>
+<body>
+    <h1>Hydra</h1>
+
+    <table class="status">
+        <tr><td>Uptime</td><td id="uptime">-</td></tr>
+        <tr><td>IP</td><td id="ip">-</td></tr>
+        <tr><td>BT Advertising</td><td id="btadv">-</td></tr>
+    </table>
+
+    <h2>BT Centrals</h2>
+    <table id="centrals-table" style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+        <thead style="background-color: #f0f0f0;">
+            <tr>
+                <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">ID</th>
+                <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Name</th>
+                <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Address</th>
+                <th style="border: 1px solid #ccc; padding: 8px; width: 1%;"></th>
+            </tr>
+        </thead>
+        <tbody id="centrals-body">
+            <tr><td colspan="4" style="padding: 8px; text-align: center; color: #888;">No BT centrals connected</td></tr>
+        </tbody>
+    </table>
+
+    <div class="actions">
+        <button onclick="send('reboot')">Reboot</button>
+        <button onclick="send('bt_adv_toggle')">Toggle BT Advertising</button>
+    </div>
+
+    <div class="control">
+        <h2>Control</h2>
+        <textarea id="type-text" placeholder="Enter text to type"></textarea>
+        <div class="control-actions">
+            <button onclick="sendType()">Send Text</button>
+        </div>
+    </div>
+
+    <div class="msg" id="msg">connecting...</div>
+
+    <script>
+    function $(id) { return document.getElementById(id); }
+
+    function fmtUptime(s) {
+        if (s < 60) return s + 's';
+        if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+        var h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+        return h + 'h ' + m + 'm';
+    }
+
+    var ws;
+
+    function wsConnect() {
+        ws = new WebSocket('ws://' + location.hostname + ':81/ws');
+
+        ws.onopen = function() {
+            $('msg').textContent = '';
+            $('msg').className = 'msg';
+        };
+
+        ws.onclose = function() {
+            $('msg').textContent = 'disconnected, retrying...';
+            $('msg').className = 'msg err';
+            setTimeout(wsConnect, 2000);
+        };
+
+        ws.onerror = function() {
+            $('msg').textContent = 'WebSocket error';
+            $('msg').className = 'msg err';
+        };
+
+        ws.onmessage = function(e) {
+            var d = JSON.parse(e.data);
+            $('uptime').textContent = fmtUptime(d.uptime);
+            $('ip').textContent = d.ip;
+            $('btadv').textContent = d.bt_adv ? 'ON' : 'OFF';
+
+            var centrals = d.bt_devices;
+            var tbody = $('centrals-body');
+            if (!centrals || centrals.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="padding: 8px; text-align: center; color: #888;">No BT centrals connected</td></tr>';
+            } else {
+                tbody.innerHTML = centrals.map(function(c) {
+                    var addr = c.addr + (c.addr_type === 'random' ? ' (random)' : '');
+                    var actionCell = (c.is_active
+                        ? '<span style="color:#2b7a2b; font-size:0.9em;">active</span>'
+                        : '<a href="#" onclick="send(\'bt_central_activate\',' + c.id + ');return false;">activate</a>')
+                        + ' <a href="#" onclick="if(confirm(\'Unpair?\'))send(\'bt_central_unpair\',' + c.id + ');return false;" style="color:#c00;font-size:0.9em;">unpair</a>';
+                    return '<tr style="border:1px solid #ccc;">' +
+                        '<td style="border:1px solid #ccc;padding:8px;">' + c.id + '</td>' +
+                        '<td style="border:1px solid #ccc;padding:8px;">' + (c.name || '') + '</td>' +
+                        '<td style="border:1px solid #ccc;padding:8px;">' + addr + '</td>' +
+                        '<td style="border:1px solid #ccc;padding:8px;white-space:nowrap;">' + actionCell + '</td>' +
+                        '</tr>';
+                }).join('');
+            }
+        };
+    }
+
+    function send(action, value) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            $('msg').textContent = 'not connected';
+            $('msg').className = 'msg err';
+            return;
+        }
+        var CMD = { bt_adv_toggle:0x03, bt_central_activate:0x04, bt_central_unpair:0x05, reboot:0x07 };
+        var b;
+        if (action === 'bt_central_activate' || action === 'bt_central_unpair') {
+            b = new ArrayBuffer(3);
+            var v = new DataView(b);
+            v.setUint8(0, CMD[action]);
+            v.setUint16(1, value, true);
+        } else {
+            b = new Uint8Array([CMD[action]]).buffer;
+        }
+        ws.send(b);
+        $('msg').textContent = '';
+        $('msg').className = 'msg';
+    }
+
+    function sendType() {
+        var text = $('type-text').value;
+        if (!text.trim()) {
+            $('msg').textContent = 'Enter text to send';
+            $('msg').className = 'msg err';
+            return;
+        }
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        var enc = new TextEncoder().encode(text);
+        var b = new ArrayBuffer(3 + enc.length);
+        var v = new DataView(b);
+        v.setUint8(0, 0x06);
+        v.setUint16(1, enc.length, true);
+        new Uint8Array(b, 3).set(enc);
+        ws.send(b);
+    }
+
+    wsConnect();
+    </script>
+</body>
+</html>
