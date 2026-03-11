@@ -16,6 +16,14 @@
         .key:active, .key.flash { background: #c8d8ee; }
         .key.mod-active { background: #4a90d9; color: #fff; border-color: #2870b9; }
         .key-sp { background: none !important; border: none !important; pointer-events: none; }
+        .mouse-wrap { overflow-x: auto; padding-bottom: 4px; }
+        .mouse-inner { min-width: 580px; }
+        .mouse-pad { width: 100%; height: 300px; background: #f0f0f0; border: 2px solid #bbb; border-radius: 8px; cursor: crosshair; touch-action: none; user-select: none; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 0.8em; }
+        .mouse-pad.tracking { background: #e8eef5; border-color: #4a90d9; }
+        .mouse-btns { display: flex; gap: 3px; margin-top: 3px; }
+        .mouse-btn { flex: 1; height: 44px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; cursor: pointer; font-size: 0.85em; display: flex; align-items: center; justify-content: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+        .mouse-btn:hover { background: #e8e8e8; }
+        .mouse-btn:active, .mouse-btn.flash { background: #c8d8ee; }
         button { padding: 8px 16px; font-size: 1em; cursor: pointer; }
         .msg { color: #888; font-size: 0.85em; min-height: 1.2em; margin-top: 8px; }
         .err { color: #c00; }
@@ -48,6 +56,20 @@
     <div class="actions">
         <button onclick="send('reboot')">Reboot</button>
         <button onclick="send('bt_adv_toggle')">Toggle BT Advertising</button>
+    </div>
+
+    <div class="control">
+        <h2>Mouse</h2>
+        <div class="mouse-wrap">
+            <div class="mouse-inner">
+                <div id="mouse-pad" class="mouse-pad">drag to move &bull; tap to click</div>
+                <div class="mouse-btns">
+                    <div class="mouse-btn" id="mbtn-left">Left Click</div>
+                    <div class="mouse-btn" id="mbtn-mid">Middle</div>
+                    <div class="mouse-btn" id="mbtn-right">Right Click</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="control">
@@ -165,7 +187,7 @@
         [[1.5,'Ctrl',0,0x01],[1.25,'Win',0,0x08],[1.25,'Alt',0,0x04],[5.25,' ',0x2C],
          [1.25,'Alt',0,0x04],[1.25,'Win',0,0x08],[1.5,'Ctrl',0,0x01],
          [1,'&#8592;',0x50],[1,'&#8593;',0x52],[1,'&#8595;',0x51],[1,'&#8594;',0x4F]],
-         
+
     ];
 
     var kbdMods = 0;
@@ -218,8 +240,88 @@
         }
     }
 
+    function sendMouse(buttons, dx, dy, wheel) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        var buf = new ArrayBuffer(5);
+        var v = new DataView(buf);
+        v.setUint8(0, 0x02);
+        v.setUint8(1, buttons);
+        v.setInt8(2, Math.max(-127, Math.min(127, dx)));
+        v.setInt8(3, Math.max(-127, Math.min(127, dy)));
+        v.setInt8(4, Math.max(-127, Math.min(127, wheel)));
+        ws.send(buf);
+    }
+
+    function initMousePad() {
+        var pad = $('mouse-pad');
+        var tracking = false;
+        var lastX = 0, lastY = 0;
+        var accumX = 0, accumY = 0;
+        var tapMoved = false;
+
+        pad.addEventListener('pointerdown', function(e) {
+            e.preventDefault();
+            pad.setPointerCapture(e.pointerId);
+            tracking = true;
+            tapMoved = false;
+            lastX = e.clientX; lastY = e.clientY;
+            accumX = 0; accumY = 0;
+            pad.classList.add('tracking');
+        });
+
+        pad.addEventListener('pointermove', function(e) {
+            if (!tracking) return;
+            e.preventDefault();
+            var rx = e.clientX - lastX, ry = e.clientY - lastY;
+            lastX = e.clientX; lastY = e.clientY;
+            if (Math.abs(rx) > 1 || Math.abs(ry) > 1) tapMoved = true;
+            accumX += rx; accumY += ry;
+            var dx = Math.round(accumX), dy = Math.round(accumY);
+            if (dx !== 0 || dy !== 0) {
+                sendMouse(0, dx, dy, 0);
+                accumX -= dx; accumY -= dy;
+            }
+        });
+
+        function pointerEnd(e) {
+            if (!tracking) return;
+            tracking = false;
+            pad.classList.remove('tracking');
+            if (!tapMoved) {
+                // tap = left click
+                sendMouse(1, 0, 0, 0);
+                setTimeout(function() { sendMouse(0, 0, 0, 0); }, 50);
+            }
+        }
+        pad.addEventListener('pointerup', pointerEnd);
+        pad.addEventListener('pointercancel', pointerEnd);
+
+        pad.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            var delta = e.deltaY > 0 ? -1 : 1;
+            sendMouse(0, 0, 0, delta);
+        }, {passive: false});
+
+        function setupBtn(id, btnBit) {
+            var el = $(id);
+            function click(e) {
+                e.preventDefault();
+                el.classList.add('flash');
+                setTimeout(function() { el.classList.remove('flash'); }, 120);
+                sendMouse(btnBit, 0, 0, 0);
+                setTimeout(function() { sendMouse(0, 0, 0, 0); }, 50);
+            }
+            el.addEventListener('mousedown', click);
+            el.addEventListener('touchstart', click, {passive: false});
+        }
+        setupBtn('mbtn-left', 1);
+        setupBtn('mbtn-mid', 4);
+        setupBtn('mbtn-right', 2);
+    }
+
     wsConnect();
     buildKbd();
+    initMousePad();
     </script>
 </body>
 </html>

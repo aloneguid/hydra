@@ -477,24 +477,22 @@ static void submit(report_id rid) {
     hid_central& central = hid_central::current();
     if(!central) {
         if(log_enabled) log("No current central, cannot send report");
-        return; // no current central
+        return;
     }
 
-    // request to send a report, this will trigger the HIDS_SUBEVENT_CAN_SEND_NOW event when bluetooth stack is ready
-    hid_rpt_to_send = rid; // set the report to send
+    if(hid_rpt_to_send != report_id::none) {
+        // A can_send_now is already in flight; update what to send and let the
+        // existing callback pick it up (avoids queueing a second event).
+        hid_rpt_to_send = rid;
+        return;
+    }
+
+    hid_rpt_to_send = rid;
     uint8_t status = hids_device_request_can_send_now_event(central.conn);
     if(status != ERROR_CODE_SUCCESS) {
         if(log_enabled) log("Error requesting can send now event: %02x", status);
-        hid_rpt_to_send = rid; // set the report to send
-        return; // error requesting can send now event
+        hid_rpt_to_send = report_id::none;
     }
-
-    // wait until the report is sent (hid_rpt_to_send is set to report_id::none)
-    while(hid_rpt_to_send != report_id::none) {
-        if(log_enabled) log("Waiting for report %u to be sent...", static_cast<uint16_t>(rid));
-    }
-
-    if(log_enabled) log("Report %u sent", static_cast<uint16_t>(rid));
 }
 
 
