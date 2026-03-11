@@ -15,16 +15,15 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.1.1)
+set(sdkVersion 2.2.0)
 set(toolchainVersion 14_2_Rel1)
-set(picotoolVersion 2.1.1)
+set(picotoolVersion 2.2.0-a4)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
 set(PICO_BOARD pico_w CACHE STRING "Board type")
-set(PICO_DEOPTIMIZED_DEBUG ON CACHE BOOL "Enable deoptimized debug build")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -34,30 +33,59 @@ project(hydra C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
+add_executable(hydra main.cpp
+    log.cpp
+    httpd.cpp
+    websocket.cpp
+    bt.cpp
+    hid.cpp)
 
-add_executable(hydra main.cpp dashboard.cpp hid.cpp)
+pico_set_program_name(hydra "hydra")
+pico_set_program_version(hydra "2.0")
 
-# pull in common dependencies
-target_link_libraries(hydra
-    pico_stdlib
-    pico_cyw43_arch_none
-    pico_btstack_ble
-    pico_btstack_cyw43
-    hardware_adc
-    hardware_flash hardware_sync)
+# Modify the below lines to enable/disable output over UART/USB
+pico_enable_stdio_uart(hydra 1)
+pico_enable_stdio_usb(hydra 0)
 
-
+# Add the standard include files to the build. This is required as there are "dirty" includes in the SDK that assume this is done.
 target_include_directories(hydra PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR} # For btstack config
-    )
+    ${CMAKE_CURRENT_LIST_DIR}
+)
 
 pico_btstack_make_gatt_header(hydra PRIVATE "${CMAKE_CURRENT_LIST_DIR}/device.gatt")
 
-# enable usb output, disable uart output
-# "Bus Reported Device Description" will be "Board CDC" in Windows Device Manager.
-pico_enable_stdio_usb(hydra 1)
-pico_enable_stdio_uart(hydra 0)
+# Add any user requested libraries
+target_link_libraries(hydra 
 
-# create map/bin/hex/uf2 file etc.
+        # standard lib
+        pico_stdlib
+
+        # arch_none means we're not using TCP/IP stack, just onboard LED (which is part of wifi driver)
+        # pico_cyw43_arch_none
+
+        # lwIP and HTTP support (if needed - can be removed if not using lwIP or HTTP)
+        pico_cyw43_arch_lwip_threadsafe_background
+        pico_lwip_http
+        pico_lwip_mdns
+        pico_httpd_content
+        pico_stdlib
+
+        # btstack
+        pico_btstack_ble
+        pico_btstack_cyw43
+
+        # other
+        hardware_adc
+        hardware_flash
+        hardware_sync
+
+        )
+
 pico_add_extra_outputs(hydra)
+
+pico_add_library(pico_httpd_content NOFLAG)
+pico_set_lwip_httpd_content(pico_httpd_content INTERFACE
+        ${CMAKE_CURRENT_LIST_DIR}/content/404.html
+        ${CMAKE_CURRENT_LIST_DIR}/content/index.html
+        )
+

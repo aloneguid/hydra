@@ -18,6 +18,35 @@ void hid_central::disconnect(hci_con_handle_t handle) {
         [handle](const hid_central& hc) { return hc.conn == handle; }), _centrals.end());
 }
 
+void hid_central::unpair(hci_con_handle_t handle) {
+    hid_central* c = find(handle);
+    if (!c) return;
+
+    std::string target_addr = c->addr;
+
+    // disconnect the BLE link
+    gap_disconnect(handle);
+
+    // remove from le_device_db by matching address
+    for (int i = 0; i < le_device_db_max_count(); i++) {
+        bd_addr_t db_addr;
+        int db_addr_type;
+        sm_key_t irk;
+        le_device_db_info(i, &db_addr_type, db_addr, irk);
+        if (db_addr_type == BD_ADDR_TYPE_UNKNOWN) continue;
+        if (bd_addr_to_str(db_addr) == target_addr) {
+            le_device_db_remove(i);
+            break;
+        }
+    }
+
+    // remove cached name
+    addr_to_user_name.erase(target_addr);
+
+    // disconnect handles internal list cleanup
+    disconnect(handle);
+}
+
 hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type) {
     string saddr = bd_addr_to_str(addr);
 
@@ -30,13 +59,37 @@ hid_central hid_central::connect(hci_con_handle_t handle, const bd_addr_t addr, 
         }
     }
 
-    hid_central new_central{handle, saddr, addr_type};
+    hid_central new_central;
+    new_central.conn = handle;
+    new_central.addr = saddr;
+    new_central.addr_t = addr_type;
+
+    auto it = addr_to_user_name.find(saddr);
+    if (it != addr_to_user_name.end()) {
+        new_central.name = it->second;
+    }
+
     _centrals.push_back(new_central);
 
     if(_centrals.size() == 1) {
-        cc = new_central; // set current connection handle to the newly connected device if this is the first connection
+        cc = new_central;
     }
     return new_central;
+}
+
+hid_central* hid_central::find(hci_con_handle_t handle) {
+    for (auto& c : _centrals) {
+        if (c.conn == handle) return &c;
+    }
+    return nullptr;
+}
+
+void hid_central::set_name(hci_con_handle_t handle, const std::string& name) {
+    hid_central* c = find(handle);
+    if (!c) return;
+    c->name = name;
+    addr_to_user_name[c->addr] = name;
+    if (cc.conn == handle) cc.name = name;
 }
 
 hid_central& hid_central::current() {
@@ -59,6 +112,14 @@ vector<hid_central>& hid_central::centrals() {
 
 void hid_central::add_address_mapping(const std::string& random_addr, const std::string& public_addr) {
     random_to_public_addr[random_addr] = public_addr;
+
+    // check if any existing central has this random address, and if so update it to use the public address
+    for (auto& hc : _centrals) {
+        if (hc.addr == random_addr) {
+            hc.addr = public_addr;
+            hc.addr_t = BD_ADDR_TYPE_LE_PUBLIC;
+        }
+    }
 }
 
 void hid_kbd_rpt_set_keycode(uint8_t* report, uint8_t keycode) {

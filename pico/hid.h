@@ -142,16 +142,27 @@ void hid_kbd_rpt_mouse_up(uint8_t* rpt);
 
 class hid_central {
     public:
+        enum class name_query_state : uint8_t {
+            idle,
+            reading,
+            done,
+            failed,
+        };
+
         hci_con_handle_t conn{ HCI_CON_HANDLE_INVALID };
+        std::string name;
         std::string addr;
         uint8_t addr_t;
         std::string irk; // Identity Resolving Key, used for resolving random addresses
+        name_query_state nq_state{name_query_state::idle};
 
         operator bool() const { return conn != HCI_CON_HANDLE_INVALID; }
 
         // globals
         static void disconnect(hci_con_handle_t handle);
+        static void unpair(hci_con_handle_t handle);
         static hid_central connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type);
+        static hid_central* find(hci_con_handle_t handle);
         static hid_central& current();
         static void current(hid_central central);
         static bool any() {
@@ -165,6 +176,7 @@ class hid_central {
         static std::vector<hid_central>& centrals();
 
         static void add_address_mapping(const std::string& random_addr, const std::string& public_addr);
+        static void set_name(hci_con_handle_t handle, const std::string& name);
 
         //utils
         static std::string addr_type_to_str(uint8_t addr_type);
