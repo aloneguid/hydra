@@ -1,6 +1,6 @@
 <html>
 <head>
-    <title>HydraW</title>
+    <title>Hydra</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 0 10px; }
@@ -9,8 +9,13 @@
         .status td:first-child { font-weight: bold; }
         .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
         .control { margin: 20px 0; }
-        .control textarea { width: 100%; min-height: 120px; box-sizing: border-box; padding: 10px; font: inherit; resize: vertical; }
-        .control-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
+        .vkbd { overflow-x: auto; padding-bottom: 4px; }
+        .kbd-row { display: flex; gap: 3px; margin-bottom: 3px; min-width: 580px; }
+        .key { flex-shrink: 0; height: 40px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; cursor: pointer; font-size: 0.72em; display: flex; align-items: center; justify-content: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; white-space: nowrap; padding: 0 2px; }
+        .key:hover { background: #e8e8e8; }
+        .key:active, .key.flash { background: #c8d8ee; }
+        .key.mod-active { background: #4a90d9; color: #fff; border-color: #2870b9; }
+        .key-sp { background: none !important; border: none !important; pointer-events: none; }
         button { padding: 8px 16px; font-size: 1em; cursor: pointer; }
         .msg { color: #888; font-size: 0.85em; min-height: 1.2em; margin-top: 8px; }
         .err { color: #c00; }
@@ -46,11 +51,8 @@
     </div>
 
     <div class="control">
-        <h2>Control</h2>
-        <textarea id="type-text" placeholder="Enter text to type"></textarea>
-        <div class="control-actions">
-            <button onclick="sendType()">Send Text</button>
-        </div>
+        <h2>Keyboard</h2>
+        <div id="vkbd" class="vkbd"></div>
     </div>
 
     <div class="msg" id="msg">connecting...</div>
@@ -135,24 +137,89 @@
         $('msg').className = 'msg';
     }
 
-    function sendType() {
-        var text = $('type-text').value;
-        if (!text.trim()) {
-            $('msg').textContent = 'Enter text to send';
-            $('msg').className = 'msg err';
+    // ---- Virtual keyboard ----
+    // Each key: [width, label, keycode, mod_bit]
+    // keycode=-1: spacer  |  keycode=0 + mod>0: sticky modifier toggle
+    var KB = [
+
+        [[2,'Esc',0x29],[1,'F1',0x3A],[1,'F2',0x3B],[1,'F3',0x3C],[1,'F4',0x3D],
+         [0.5,'',-1],[1,'F5',0x3E],[1,'F6',0x3F],[1,'F7',0x40],[1,'F8',0x41],
+         [0.5,'',-1],[1,'F9',0x42],[1,'F10',0x43],[1,'F11',0x44],[1,'F12',0x45]],
+
+        [[1,'`',0x35],[1,'1',0x1E],[1,'2',0x1F],[1,'3',0x20],[1,'4',0x21],[1,'5',0x22],
+         [1,'6',0x23],[1,'7',0x24],[1,'8',0x25],[1,'9',0x26],[1,'0',0x27],
+         [1,'-',0x2D],[1,'=',0x2E],[2,'Bksp',0x2A]],
+
+        [[1.5,'Tab',0x2B],[1,'Q',0x14],[1,'W',0x1A],[1,'E',0x08],[1,'R',0x15],
+         [1,'T',0x17],[1,'Y',0x1C],[1,'U',0x18],[1,'I',0x0C],[1,'O',0x12],
+         [1,'P',0x13],[1,'[',0x2F],[1,']',0x30],[1.5,'\\',0x31]],
+
+        [[1.75,'Caps',0x39],[1,'A',0x04],[1,'S',0x16],[1,'D',0x07],[1,'F',0x09],
+         [1,'G',0x0A],[1,'H',0x0B],[1,'J',0x0D],[1,'K',0x0E],[1,'L',0x0F],
+         [1,';',0x33],[1,"'",0x34],[2.25,'Enter',0x28]],
+
+        [[2,'Shift',0,0x02],[1,'Z',0x1D],[1,'X',0x1B],[1,'C',0x06],[1,'V',0x19],
+         [1,'B',0x05],[1,'N',0x11],[1,'M',0x10],[1,',',0x36],[1,'.',0x37],
+         [1,'/',0x38],[2,'Shift',0,0x02]],
+
+        [[1.5,'Ctrl',0,0x01],[1.25,'Win',0,0x08],[1.25,'Alt',0,0x04],[5.25,' ',0x2C],
+         [1.25,'Alt',0,0x04],[1.25,'Win',0,0x08],[1.5,'Ctrl',0,0x01],
+         [1,'&#8592;',0x50],[1,'&#8593;',0x52],[1,'&#8595;',0x51],[1,'&#8594;',0x4F]],
+         
+    ];
+
+    var kbdMods = 0;
+
+    function buildKbd() {
+        var el = $('vkbd');
+        KB.forEach(function(row) {
+            var rd = document.createElement('div');
+            rd.className = 'kbd-row';
+            row.forEach(function(k) {
+                var w = k[0], lbl = k[1], kc = k[2], mod = k[3]||0;
+                var d = document.createElement('div');
+                d.style.cssText = 'flex-grow:' + w + ';flex-basis:0;min-width:0';
+                if (kc === -1) {
+                    d.className = 'key key-sp';
+                } else {
+                    d.className = 'key' + (mod ? ' key-mod' : '');
+                    d.innerHTML = lbl;
+                    if (mod) d.dataset.mod = mod;
+                    var fn = (function(kc, mod, d){ return function(){ pressKey(kc, mod, d); }; })(kc, mod, d);
+                    d.addEventListener('mousedown', function(e){ e.preventDefault(); fn(); });
+                    d.addEventListener('touchstart', function(e){ e.preventDefault(); fn(); }, {passive:false});
+                }
+                rd.appendChild(d);
+            });
+            el.appendChild(rd);
+        });
+    }
+
+    function pressKey(kc, mod, el) {
+        if (mod && kc === 0) {
+            kbdMods ^= mod;
+            document.querySelectorAll('.key-mod').forEach(function(b){
+                b.classList.toggle('mod-active', !!(kbdMods & +b.dataset.mod));
+            });
             return;
         }
+        if (el) { el.classList.add('flash'); setTimeout(function(){ el.classList.remove('flash'); }, 120); }
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        var enc = new TextEncoder().encode(text);
-        var b = new ArrayBuffer(3 + enc.length);
-        var v = new DataView(b);
-        v.setUint8(0, 0x06);
-        v.setUint16(1, enc.length, true);
-        new Uint8Array(b, 3).set(enc);
-        ws.send(b);
+        var m = kbdMods | mod;
+        // press: [0x01, modifier, 0x00(reserved), keycode, 0,0,0,0,0]
+        var press = new Uint8Array(9); press[0]=0x01; press[1]=m; press[3]=kc;
+        // release: all zeros except cmd byte
+        var rel = new Uint8Array(9); rel[0]=0x01;
+        ws.send(press.buffer);
+        ws.send(rel.buffer);
+        if (kbdMods) {
+            kbdMods = 0;
+            document.querySelectorAll('.key-mod').forEach(function(b){ b.classList.remove('mod-active'); });
+        }
     }
 
     wsConnect();
+    buildKbd();
     </script>
 </body>
 </html>

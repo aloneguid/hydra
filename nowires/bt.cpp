@@ -504,3 +504,13 @@ void bt::send_key_press(uint8_t keycode) {
     hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0);
     submit(report_id::kbd);
 }
+
+void bt::send_key_report(const uint8_t report[8]) {
+    memcpy(hid_rpt_kbd, report, sizeof(hid_rpt_kbd));
+    submit(report_id::kbd);
+}
+
+void bt::send_mouse_report(const uint8_t report[4]) {
+    memcpy(hid_rpt_mouse, report, sizeof(hid_rpt_mouse));
+    submit(report_id::mouse);
+}

@@ -28,7 +28,7 @@ public:
 
     // commands
     std::function<void(const uint8_t report[8])> cmd_kbd_report;  // 8-byte HID keyboard report
-    std::function<void(uint8_t buttons, int8_t dx, int8_t dy, int8_t wheel)> cmd_mouse;
+    std::function<void(const uint8_t report[4])> cmd_mouse_report;  // 4-byte HID mouse report
     std::function<void()> cmd_reboot;
     std::function<void()> cmd_bt_adv_toggle;
     std::function<void(uint16_t central_id)> cmd_bt_central_activate;

@@ -105,6 +105,14 @@ int main() {
     b.init();
     b.start();
 
+    h.cmd_kbd_report = [&b](const uint8_t report[8]) {
+        b.send_key_report(report);
+    };
+
+    h.cmd_mouse_report = [&b](const uint8_t report[4]) {
+        b.send_mouse_report(report);
+    };
+
     h.cmd_bt_adv_toggle = [&b]() {
         b.adv_toggle();
     };

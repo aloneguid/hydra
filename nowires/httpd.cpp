@@ -87,8 +87,8 @@ void httpd::start() {
                     h.cmd_kbd_report(b + 1);
                 return;  // high-frequency, no state notify
             case CMD_MOUSE:
-                if (len >= 5 && h.cmd_mouse)
-                    h.cmd_mouse(b[1], (int8_t)b[2], (int8_t)b[3], (int8_t)b[4]);
+                if (len >= 5 && h.cmd_mouse_report)
+                    h.cmd_mouse_report(b + 1);
                 return;  // high-frequency, no state notify
             case CMD_BT_ADV_TOGGLE:
                 if (h.cmd_bt_adv_toggle) h.cmd_bt_adv_toggle();

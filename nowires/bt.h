@@ -32,6 +32,8 @@ public:
 
     // HID utils
     void send_key_press(uint8_t keycode);
+    void send_key_report(const uint8_t report[8]);
+    void send_mouse_report(const uint8_t report[4]);
 
 private:
     bool is_advertising{false};
