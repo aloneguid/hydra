@@ -3,54 +3,586 @@
     <title>Hydra</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
-        h1 { margin-bottom: 4px; }
-        .status td { padding: 4px 12px 4px 0; }
-        .status td:first-child { font-weight: bold; }
-        .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
-        .control { margin: 20px 0; }
-        .mouse-pad { width: 100%; height: 220px; margin: 0 auto; background: #f0f0f0; border: 2px solid #bbb; border-radius: 8px; cursor: crosshair; touch-action: none; user-select: none; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 0.85em; outline: none; text-align: center; padding: 12px; }
-        .mouse-pad.active { background: #e8eef5; border-color: #4a90d9; color: #7aaad9; }
-        button { padding: 8px 16px; font-size: 1em; cursor: pointer; }
-        .msg { color: #888; font-size: 0.85em; min-height: 1.2em; margin-top: 8px; }
-        .err { color: #c00; }
+        :root {
+            --panel-edge: rgba(125, 226, 156, 0.18);
+            --text-main: #eff9ee;
+            --text-soft: #9ec1ad;
+            --text-dim: #6f8d7a;
+            --venom: #97ff71;
+            --blood: #ff7668;
+            --gold: #ffd36e;
+            --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+            --radius-lg: 10px;
+            --radius-md: 6px;
+            --radius-pill: 999px;
+            --trans-fast: 140ms ease;
+            --trans-med: 180ms ease;
+        }
+        * { box-sizing: border-box; }
+        html, body { min-height: 100%; }
+        body {
+            margin: 0;
+            padding: 14px 10px 28px;
+            font-family: "Trebuchet MS", "Gill Sans", "Lucida Sans", sans-serif;
+            color: var(--text-main);
+            background:
+                radial-gradient(circle at 12% 18%, rgba(96, 255, 159, 0.18), transparent 20%),
+                radial-gradient(circle at 86% 12%, rgba(255, 211, 110, 0.12), transparent 18%),
+                radial-gradient(circle at 50% 72%, rgba(51, 155, 105, 0.16), transparent 28%),
+                linear-gradient(180deg, #10251b 0%, #08110d 100%);
+            overflow-x: hidden;
+        }
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            inset: auto;
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(10px);
+        }
+        body::before {
+            top: -80px;
+            left: -110px;
+            width: 340px;
+            height: 340px;
+            background: radial-gradient(circle, rgba(151, 255, 113, 0.16), transparent 65%);
+        }
+        body::after {
+            right: -120px;
+            bottom: -90px;
+            width: 380px;
+            height: 380px;
+            background: radial-gradient(circle, rgba(255, 118, 104, 0.10), transparent 64%);
+        }
+        a {
+            color: #b7ff9c;
+            text-decoration: none;
+        }
+        a:hover { color: #dcffc5; }
+        .shell {
+            position: relative;
+            z-index: 1;
+            max-width: 1040px;
+            margin: 0 auto;
+        }
+        .panel {
+            position: relative;
+            margin-top: 10px;
+            padding: 12px;
+            border: 1px solid var(--panel-edge);
+            border-radius: var(--radius-lg);
+            background:
+                linear-gradient(180deg, rgba(21, 47, 35, 0.90), rgba(8, 18, 13, 0.84)),
+                repeating-linear-gradient(135deg, rgba(151, 255, 113, 0.04) 0 12px, rgba(0, 0, 0, 0) 12px 24px);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(151, 255, 113, 0.12), transparent 28%);
+            pointer-events: none;
+        }
+        @keyframes hydraHeadSway {
+            0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+            50% { transform: translateY(-5px) rotate(4deg) scale(1.03); }
+        }
+        @keyframes hydraHeadNod {
+            0%, 100% { transform: translateY(0) rotate(-1deg); }
+            45% { transform: translateY(-2px) rotate(2deg); }
+            70% { transform: translateY(1px) rotate(-2deg); }
+        }
+        @keyframes hydraGlow {
+            0%, 100% { box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24), 0 0 0 rgba(151, 255, 113, 0.00); }
+            50% { box-shadow: 0 10px 18px rgba(0, 0, 0, 0.28), 0 0 18px rgba(151, 255, 113, 0.22); }
+        }
+        @keyframes hydraBodyBreathe {
+            0%, 100% { transform: translateX(-50%) scale(1, 1); }
+            50% { transform: translateX(-50%) scale(1.05, 0.95); }
+        }
+        @keyframes hydraAuraSpin {
+            0% { transform: rotate(0deg); opacity: 0.35; }
+            50% { opacity: 0.7; }
+            100% { transform: rotate(360deg); opacity: 0.35; }
+        }
+        @keyframes hydraBlink {
+            0%, 44%, 48%, 100% { transform: scaleY(1); opacity: 0.95; }
+            45%, 47% { transform: scaleY(0.12); opacity: 0.75; }
+        }
+        @keyframes hydraJaw {
+            0%, 100% { height: 14px; opacity: 0.78; }
+            55% { height: 17px; opacity: 0.92; }
+        }
+        @keyframes padBreath {
+            0%, 100% { background-position: 50% 50%, 50% 50%, 50% 0%; }
+            50% { background-position: 48% 44%, 52% 58%, 50% 100%; }
+        }
+        @keyframes runePulse {
+            0%, 100% { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 0 0 rgba(151,255,113,0); }
+            50% { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 16px rgba(151,255,113,0.18); }
+        }
+        .hero {
+            display: grid;
+            grid-template-columns: 180px minmax(0, 1fr) 280px;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+        }
+        .hero-main {
+            min-width: 0;
+        }
+        .hero-status {
+            position: relative;
+            z-index: 1;
+            padding: 0;
+            background: none;
+            border: 0;
+            box-shadow: none;
+        }
+        .hero-status .section-heading {
+            display: block;
+            margin-bottom: 4px;
+        }
+        .hero-status h2 {
+            font-size: 0.92rem;
+        }
+        .hero-status .section-note {
+            margin-top: 2px;
+            font-size: 0.72rem;
+        }
+        .hydra-mark {
+            position: relative;
+            min-height: 160px;
+            isolation: isolate;
+        }
+        .hydra-mark::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: 6px;
+            width: 120px;
+            height: 96px;
+            transform: translateX(-50%);
+            border-radius: 60% 60% 48% 48%;
+            background: linear-gradient(180deg, #24593d, #0b2118);
+            box-shadow: inset 0 12px 18px rgba(188, 255, 161, 0.12), 0 18px 28px rgba(0,0,0,0.28);
+            animation: hydraBodyBreathe 6s ease-in-out infinite;
+            z-index: 1;
+        }
+        .hydra-mark::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 8px;
+            width: 170px;
+            height: 140px;
+            transform: translateX(-50%);
+            border-radius: 50%;
+            background:
+                conic-gradient(from 0deg, rgba(151,255,113,0) 0 20%, rgba(151,255,113,0.2) 33%, rgba(255,211,110,0.18) 50%, rgba(151,255,113,0) 70%),
+                radial-gradient(circle at center, rgba(151,255,113,0.08), rgba(151,255,113,0) 65%);
+            filter: blur(6px);
+            animation: hydraAuraSpin 12s linear infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .hydra-mark span {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            border-radius: 50% 50% 42% 42%;
+            background: radial-gradient(circle at 30% 28%, #d8ff91, #54ce78 55%, #123225 100%);
+            border: 1px solid rgba(239, 249, 238, 0.18);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
+            transform-origin: 50% 90%;
+            animation: hydraHeadSway 4.4s ease-in-out infinite, hydraGlow 3.8s ease-in-out infinite, hydraHeadNod 6.8s ease-in-out infinite;
+            z-index: 2;
+        }
+        .hydra-mark span::before {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 14px;
+            width: 28px;
+            height: 6px;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(248,255,182,0.95) 0 2px, rgba(0,0,0,0) 2.5px),
+                radial-gradient(circle at 80% 50%, rgba(248,255,182,0.95) 0 2px, rgba(0,0,0,0) 2.5px);
+            transform-origin: center;
+            animation: hydraBlink 5.2s steps(1, end) infinite;
+        }
+        .hydra-mark span::after {
+            content: "";
+            position: absolute;
+            inset: auto 11px 10px 11px;
+            height: 14px;
+            border-radius: 0 0 16px 16px;
+            background: linear-gradient(180deg, rgba(10, 26, 18, 0), rgba(10, 26, 18, 0.82));
+            animation: hydraJaw 4.7s ease-in-out infinite;
+        }
+        .hydra-mark span:nth-child(1) { left: 8px; top: 24px; animation-delay: 0s; }
+        .hydra-mark span:nth-child(2) { left: 36px; top: 0; animation-delay: 0.6s; }
+        .hydra-mark span:nth-child(3) { left: 68px; top: 18px; animation-delay: 1.2s; }
+        .hydra-mark span:nth-child(4) { left: 102px; top: 2px; animation-delay: 1.8s; }
+        .hydra-mark span:nth-child(5) { left: 126px; top: 30px; animation-delay: 2.4s; }
+        .eyebrow {
+            margin: 0 0 6px;
+            color: var(--venom);
+            font-size: 0.72rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+        h1 {
+            margin: 0;
+            font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+            font-size: clamp(2.8rem, 6vw, 5rem);
+            line-height: 0.92;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: #f6ffe9;
+            text-shadow: 0 0 28px rgba(151, 255, 113, 0.22);
+        }
+        .subtitle {
+            max-width: 48ch;
+            margin: 6px 0 0;
+            color: var(--text-soft);
+            line-height: 1.35;
+            font-size: 0.88rem;
+        }
+        .section-heading {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        h2 {
+            margin: 0;
+            font-family: "Palatino Linotype", Georgia, serif;
+            font-size: 1.16rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #f3ffd8;
+        }
+        .section-note {
+            margin: 0;
+            color: var(--text-dim);
+            font-size: 0.78rem;
+        }
+        .status {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .status td {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(151, 255, 113, 0.10);
+        }
+        .status tr:last-child td { border-bottom: 0; }
+        .status td:first-child {
+            width: 92px;
+            color: var(--text-soft);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-size: 0.68rem;
+        }
+        .status td:last-child {
+            color: #f7fff3;
+            font-weight: bold;
+            font-size: 0.98rem;
+        }
+        .status-value {
+            display: inline-flex;
+            align-items: center;
+            min-height: 28px;
+            padding: 5px 9px;
+            border-radius: 4px;
+            background:
+                linear-gradient(135deg, rgba(151, 255, 113, 0.14), rgba(255, 211, 110, 0.10)),
+                rgba(5, 18, 12, 0.74);
+            border: 1px solid rgba(151, 255, 113, 0.18);
+            color: #f6ffe9;
+            letter-spacing: 0.04em;
+            animation: runePulse 4s ease-in-out infinite;
+        }
+        #centrals-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            overflow: hidden;
+            border-radius: var(--radius-md);
+            background: rgba(5, 17, 12, 0.34);
+        }
+        #centrals-table thead {
+            background: linear-gradient(90deg, rgba(151, 255, 113, 0.14), rgba(255, 211, 110, 0.08));
+        }
+        #centrals-table th,
+        #centrals-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(151, 255, 113, 0.10);
+            text-align: left;
+        }
+        #centrals-table th {
+            color: #dff7d9;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-size: 0.66rem;
+        }
+        #centrals-table td {
+            color: var(--text-soft);
+            font-size: 0.88rem;
+        }
+        #centrals-table tbody tr:last-child td { border-bottom: 0; }
+        #centrals-table tbody tr:hover td {
+            background: rgba(151, 255, 113, 0.05);
+        }
+        #centrals-table tbody tr.central-row-active td {
+            background:
+                linear-gradient(90deg, rgba(151, 255, 113, 0.14), rgba(255, 211, 110, 0.06));
+            color: #f6ffe9;
+        }
+        #centrals-table tbody tr.central-row-active td:first-child {
+            position: relative;
+            font-weight: bold;
+        }
+        .empty-row td {
+            color: var(--text-dim);
+            text-align: center;
+            padding: 12px 8px;
+            font-style: italic;
+        }
+        .central-active {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 7px;
+            border-radius: var(--radius-pill);
+            background: rgba(151, 255, 113, 0.12);
+            color: var(--venom);
+            font-size: 0.72rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .central-active::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 12px currentColor;
+        }
+        .link-action,
+        .link-danger {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 6px;
+            border-radius: var(--radius-pill);
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .link-action { color: var(--gold); }
+        .link-danger { color: var(--blood); margin-left: 8px; }
+        .actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        button {
+            appearance: none;
+            border: 0;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.76rem;
+            font-weight: bold;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #08110d;
+            cursor: pointer;
+            background: linear-gradient(135deg, #d7ff7b, #6ee08a 58%, #43b16b 100%);
+            box-shadow: 0 12px 26px rgba(67, 177, 107, 0.24);
+            transition: transform var(--trans-fast), box-shadow var(--trans-fast), filter var(--trans-fast);
+        }
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 30px rgba(67, 177, 107, 0.30);
+            filter: saturate(1.08);
+        }
+        button:active { transform: translateY(1px); }
+        .control { margin-top: 10px; }
+        .mouse-pad {
+            position: relative;
+            width: 100%;
+            height: 190px;
+            margin: 0 auto;
+            padding: 10px;
+            border: 1px solid rgba(151, 255, 113, 0.16);
+            border-radius: 8px;
+            cursor: crosshair;
+            outline: none;
+            overflow: hidden;
+            user-select: none;
+            text-align: center;
+            color: #d3edd8;
+            font-size: 0.8rem;
+            line-height: 1.3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            background:
+                radial-gradient(circle at 50% 50%, rgba(166, 255, 112, 0.18), transparent 35%),
+                repeating-radial-gradient(circle at 50% 50%, rgba(151, 255, 113, 0.10) 0 18px, rgba(0, 0, 0, 0) 18px 36px),
+                linear-gradient(180deg, rgba(22, 55, 42, 0.95), rgba(6, 17, 13, 0.96));
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), inset 0 24px 50px rgba(198, 255, 172, 0.06);
+            transition: transform var(--trans-med), border-color var(--trans-med), box-shadow var(--trans-med), color var(--trans-med);
+            animation: padBreath 7s ease-in-out infinite;
+        }
+        .mouse-pad::before,
+        .mouse-pad::after {
+            content: "";
+            position: absolute;
+            width: 140px;
+            height: 140px;
+            border-radius: 46% 54% 55% 45%;
+            background: radial-gradient(circle at 30% 30%, rgba(215, 255, 123, 0.30), rgba(0, 0, 0, 0) 70%);
+            opacity: 0.65;
+            pointer-events: none;
+        }
+        .mouse-pad::before {
+            top: -55px;
+            left: -30px;
+            transform: rotate(-12deg);
+        }
+        .mouse-pad::after {
+            right: -35px;
+            bottom: -65px;
+            transform: rotate(28deg);
+        }
+        .mouse-pad.active {
+            color: #f8fff0;
+            border-color: rgba(215, 255, 123, 0.55);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 0 0 1px rgba(151, 255, 113, 0.14), 0 0 32px rgba(151, 255, 113, 0.22);
+            transform: translateY(-1px);
+        }
+        .msg {
+            margin-top: 8px;
+            min-height: 1.2em;
+            padding: 6px 9px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+            color: var(--text-soft);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            text-align: center;
+        }
+        .err {
+            color: #fff1ef;
+            background: rgba(255, 118, 104, 0.16);
+        }
+        @media (max-width: 720px) {
+            .hero {
+                grid-template-columns: 1fr;
+                gap: 14px;
+                text-align: center;
+            }
+            .hero-main {
+                order: 2;
+            }
+            .hero-status {
+                order: 3;
+                text-align: left;
+            }
+            .hydra-mark {
+                width: 180px;
+                margin: 0 auto;
+            }
+            .section-heading {
+                display: block;
+            }
+            .section-note { margin-top: 6px; }
+            .actions button {
+                width: 100%;
+            }
+            .status td:first-child { width: 120px; }
+        }
     </style>
 </head>
 <body>
-    <h1>Hydra</h1>
+    <div class="shell">
+        <section class="panel hero">
+            <div class="hydra-mark" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="hero-main">
+                <p class="eyebrow">Multi-Headed Remote Console</p>
+                <h1>Hydra</h1>
+                <p class="subtitle">A control surface with too many heads, bright eyes, and a taste for keyboards, mice, and remembered Bluetooth loyalties.</p>
+            </div>
+            <div class="hero-status">
+                <div class="section-heading">
+                    <h2>Vital Signs</h2>
+                    <p class="section-note">What the creature is doing right now.</p>
+                </div>
+                <table class="status">
+                    <tr><td>Uptime</td><td><span class="status-value" id="uptime">-</span></td></tr>
+                    <tr><td>IP</td><td><span class="status-value" id="ip">-</span></td></tr>
+                    <tr><td>BT Advertising</td><td><span class="status-value" id="btadv">-</span></td></tr>
+                </table>
+            </div>
+        </section>
 
-    <table class="status">
-        <tr><td>Uptime</td><td id="uptime">-</td></tr>
-        <tr><td>IP</td><td id="ip">-</td></tr>
-        <tr><td>BT Advertising</td><td id="btadv">-</td></tr>
-    </table>
+        <section class="panel">
+            <div class="section-heading">
+                <h2>BT Centrals</h2>
+                <p class="section-note">Choose which head gets the next report stream.</p>
+            </div>
+            <table id="centrals-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Address</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="centrals-body">
+                    <tr class="empty-row"><td colspan="4">No BT centrals connected</td></tr>
+                </tbody>
+            </table>
+        </section>
 
-    <h2>BT Centrals</h2>
-    <table id="centrals-table" style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-        <thead style="background-color: #f0f0f0;">
-            <tr>
-                <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">ID</th>
-                <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Name</th>
-                <th style="border: 1px solid #ccc; padding: 8px; text-align: left;">Address</th>
-                <th style="border: 1px solid #ccc; padding: 8px; width: 1%;"></th>
-            </tr>
-        </thead>
-        <tbody id="centrals-body">
-            <tr><td colspan="4" style="padding: 8px; text-align: center; color: #888;">No BT centrals connected</td></tr>
-        </tbody>
-    </table>
+        <section class="panel">
+            <div class="section-heading">
+                <h2>Commands</h2>
+                <p class="section-note">Cut one head off, two more buttons appear.</p>
+            </div>
+            <div class="actions">
+                <button onclick="send('reboot')">Reboot</button>
+                <button onclick="send('bt_adv_toggle')">Toggle BT Advertising</button>
+            </div>
+        </section>
 
-    <div class="actions">
-        <button onclick="send('reboot')">Reboot</button>
-        <button onclick="send('bt_adv_toggle')">Toggle BT Advertising</button>
+        <section class="panel control">
+            <div class="section-heading">
+                <h2>Mouse &amp; Keyboard</h2>
+                <p class="section-note">Lock a head, then steer from anywhere.</p>
+            </div>
+            <div id="mouse-pad" class="mouse-pad" tabindex="0">hover to control cursor &bull; left-click to lock capture (Esc to unlock) &bull; left/middle/right/back/forward + wheel + keys while active</div>
+        </section>
+
+        <div class="msg" id="msg">connecting...</div>
     </div>
-
-    <div class="control">
-        <h2>Mouse &amp; Keyboard</h2>
-        <div id="mouse-pad" class="mouse-pad" tabindex="0">hover to control cursor &bull; left-click to lock capture (Esc to unlock) &bull; left/middle/right/back/forward + wheel + keys while active</div>
-    </div>
-
-    <div class="msg" id="msg">connecting...</div>
 
     <script>
     function $(id) { return document.getElementById(id); }
@@ -92,19 +624,19 @@
             var centrals = d.bt_devices;
             var tbody = $('centrals-body');
             if (!centrals || centrals.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="padding: 8px; text-align: center; color: #888;">No BT centrals connected</td></tr>';
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No BT centrals connected</td></tr>';
             } else {
                 tbody.innerHTML = centrals.map(function(c) {
                     var addr = c.addr + (c.addr_type === 'random' ? ' (random)' : '');
                     var actionCell = (c.is_active
-                        ? '<span style="color:#2b7a2b; font-size:0.9em;">active</span>'
-                        : '<a href="#" onclick="send(\'bt_central_activate\',' + c.id + ');return false;">activate</a>')
-                        + ' <a href="#" onclick="if(confirm(\'Unpair?\'))send(\'bt_central_unpair\',' + c.id + ');return false;" style="color:#c00;font-size:0.9em;">unpair</a>';
-                    return '<tr style="border:1px solid #ccc;">' +
-                        '<td style="border:1px solid #ccc;padding:8px;">' + c.id + '</td>' +
-                        '<td style="border:1px solid #ccc;padding:8px;">' + (c.name || '') + '</td>' +
-                        '<td style="border:1px solid #ccc;padding:8px;">' + addr + '</td>' +
-                        '<td style="border:1px solid #ccc;padding:8px;white-space:nowrap;">' + actionCell + '</td>' +
+                        ? '<span class="central-active">active</span>'
+                        : '<a class="link-action" href="#" onclick="send(\'bt_central_activate\',' + c.id + ');return false;">activate</a>')
+                        + ' <a class="link-danger" href="#" onclick="if(confirm(\'Unpair?\'))send(\'bt_central_unpair\',' + c.id + ');return false;">unpair</a>';
+                    return '<tr class="' + (c.is_active ? 'central-row-active' : '') + '">' +
+                        '<td>' + c.id + '</td>' +
+                        '<td>' + (c.name || '') + '</td>' +
+                        '<td>' + addr + '</td>' +
+                        '<td style="white-space:nowrap;">' + actionCell + '</td>' +
                         '</tr>';
                 }).join('');
             }
