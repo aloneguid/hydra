@@ -447,7 +447,7 @@ bool bt::activate_central(uint16_t central_id) {
     bool found = false;
     for(auto& hc : hid_central::centrals()) {
         if(hc.conn == central_id) {
-            hid_central::current(hc);
+            hid_central::current(hc, true);
             found = true;
             break;
         }

@@ -1,6 +1,7 @@
 #pragma once
 #include "pico/stdlib.h"
 #include "btstack.h"
+#include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
@@ -164,7 +165,7 @@ class hid_central {
         static hid_central connect(hci_con_handle_t handle, const bd_addr_t addr, uint8_t addr_type);
         static hid_central* find(hci_con_handle_t handle);
         static hid_central& current();
-        static void current(hid_central central);
+        static void current(hid_central central, bool persist_preference = false);
         static bool any() {
             return !_centrals.empty();
         }
@@ -189,9 +190,15 @@ class hid_central {
         static std::vector<hid_central> _centrals;
         static std::map<std::string, std::string> random_to_public_addr;
         static std::map<std::string, std::string> addr_to_user_name;
+        static std::string preferred_addr;
+        static bool preferred_addr_loaded;
 
         /**
          * Iterates through instances and refreshes IRKs for all devices using device db;
          */
         static void refresh_irks();
+        static void load_preferred_addr();
+        static void store_preferred_addr(const std::string& addr);
+        static void clear_preferred_addr();
+        static void select_current_after_change();
 };
