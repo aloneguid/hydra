@@ -3,27 +3,14 @@
     <title>Hydra</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 0 10px; }
+        body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; padding: 0 10px; }
         h1 { margin-bottom: 4px; }
         .status td { padding: 4px 12px 4px 0; }
         .status td:first-child { font-weight: bold; }
         .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
         .control { margin: 20px 0; }
-        .vkbd { overflow-x: auto; padding-bottom: 4px; }
-        .kbd-row { display: flex; gap: 3px; margin-bottom: 3px; min-width: 580px; }
-        .key { flex-shrink: 0; height: 40px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; cursor: pointer; font-size: 0.72em; display: flex; align-items: center; justify-content: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; white-space: nowrap; padding: 0 2px; }
-        .key:hover { background: #e8e8e8; }
-        .key:active, .key.flash { background: #c8d8ee; }
-        .key.mod-active { background: #4a90d9; color: #fff; border-color: #2870b9; }
-        .key-sp { background: none !important; border: none !important; pointer-events: none; }
-        .mouse-wrap { overflow-x: auto; padding-bottom: 4px; }
-        .mouse-inner { min-width: 580px; }
-        .mouse-pad { width: 100%; height: 300px; background: #f0f0f0; border: 2px solid #bbb; border-radius: 8px; cursor: crosshair; touch-action: none; user-select: none; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 0.8em; }
-        .mouse-pad.tracking { background: #e8eef5; border-color: #4a90d9; }
-        .mouse-btns { display: flex; gap: 3px; margin-top: 3px; }
-        .mouse-btn { flex: 1; height: 44px; border: 1px solid #bbb; border-radius: 4px; background: #f5f5f5; cursor: pointer; font-size: 0.85em; display: flex; align-items: center; justify-content: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-        .mouse-btn:hover { background: #e8e8e8; }
-        .mouse-btn:active, .mouse-btn.flash { background: #c8d8ee; }
+        .mouse-pad { width: 100%; height: 220px; margin: 0 auto; background: #f0f0f0; border: 2px solid #bbb; border-radius: 8px; cursor: crosshair; touch-action: none; user-select: none; box-sizing: border-box; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 0.85em; outline: none; text-align: center; padding: 12px; }
+        .mouse-pad.active { background: #e8eef5; border-color: #4a90d9; color: #7aaad9; }
         button { padding: 8px 16px; font-size: 1em; cursor: pointer; }
         .msg { color: #888; font-size: 0.85em; min-height: 1.2em; margin-top: 8px; }
         .err { color: #c00; }
@@ -59,22 +46,8 @@
     </div>
 
     <div class="control">
-        <h2>Mouse</h2>
-        <div class="mouse-wrap">
-            <div class="mouse-inner">
-                <div id="mouse-pad" class="mouse-pad">drag to move &bull; tap to click</div>
-                <div class="mouse-btns">
-                    <div class="mouse-btn" id="mbtn-left">Left Click</div>
-                    <div class="mouse-btn" id="mbtn-mid">Middle</div>
-                    <div class="mouse-btn" id="mbtn-right">Right Click</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="control">
-        <h2>Keyboard</h2>
-        <div id="vkbd" class="vkbd"></div>
+        <h2>Mouse &amp; Keyboard</h2>
+        <div id="mouse-pad" class="mouse-pad" tabindex="0">hover to control cursor &bull; left-click to lock capture (Esc to unlock) &bull; left/middle/right/back/forward + wheel + keys while active</div>
     </div>
 
     <div class="msg" id="msg">connecting...</div>
@@ -159,87 +132,6 @@
         $('msg').className = 'msg';
     }
 
-    // ---- Virtual keyboard ----
-    // Each key: [width, label, keycode, mod_bit]
-    // keycode=-1: spacer  |  keycode=0 + mod>0: sticky modifier toggle
-    var KB = [
-
-        [[2,'Esc',0x29],[1,'F1',0x3A],[1,'F2',0x3B],[1,'F3',0x3C],[1,'F4',0x3D],
-         [0.5,'',-1],[1,'F5',0x3E],[1,'F6',0x3F],[1,'F7',0x40],[1,'F8',0x41],
-         [0.5,'',-1],[1,'F9',0x42],[1,'F10',0x43],[1,'F11',0x44],[1,'F12',0x45]],
-
-        [[1,'`',0x35],[1,'1',0x1E],[1,'2',0x1F],[1,'3',0x20],[1,'4',0x21],[1,'5',0x22],
-         [1,'6',0x23],[1,'7',0x24],[1,'8',0x25],[1,'9',0x26],[1,'0',0x27],
-         [1,'-',0x2D],[1,'=',0x2E],[2,'Bksp',0x2A]],
-
-        [[1.5,'Tab',0x2B],[1,'Q',0x14],[1,'W',0x1A],[1,'E',0x08],[1,'R',0x15],
-         [1,'T',0x17],[1,'Y',0x1C],[1,'U',0x18],[1,'I',0x0C],[1,'O',0x12],
-         [1,'P',0x13],[1,'[',0x2F],[1,']',0x30],[1.5,'\\',0x31]],
-
-        [[1.75,'Caps',0x39],[1,'A',0x04],[1,'S',0x16],[1,'D',0x07],[1,'F',0x09],
-         [1,'G',0x0A],[1,'H',0x0B],[1,'J',0x0D],[1,'K',0x0E],[1,'L',0x0F],
-         [1,';',0x33],[1,"'",0x34],[2.25,'Enter',0x28]],
-
-        [[2,'Shift',0,0x02],[1,'Z',0x1D],[1,'X',0x1B],[1,'C',0x06],[1,'V',0x19],
-         [1,'B',0x05],[1,'N',0x11],[1,'M',0x10],[1,',',0x36],[1,'.',0x37],
-         [1,'/',0x38],[2,'Shift',0,0x02]],
-
-        [[1.5,'Ctrl',0,0x01],[1.25,'Win',0,0x08],[1.25,'Alt',0,0x04],[5.25,' ',0x2C],
-         [1.25,'Alt',0,0x04],[1.25,'Win',0,0x08],[1.5,'Ctrl',0,0x01],
-         [1,'&#8592;',0x50],[1,'&#8593;',0x52],[1,'&#8595;',0x51],[1,'&#8594;',0x4F]],
-
-    ];
-
-    var kbdMods = 0;
-
-    function buildKbd() {
-        var el = $('vkbd');
-        KB.forEach(function(row) {
-            var rd = document.createElement('div');
-            rd.className = 'kbd-row';
-            row.forEach(function(k) {
-                var w = k[0], lbl = k[1], kc = k[2], mod = k[3]||0;
-                var d = document.createElement('div');
-                d.style.cssText = 'flex-grow:' + w + ';flex-basis:0;min-width:0';
-                if (kc === -1) {
-                    d.className = 'key key-sp';
-                } else {
-                    d.className = 'key' + (mod ? ' key-mod' : '');
-                    d.innerHTML = lbl;
-                    if (mod) d.dataset.mod = mod;
-                    var fn = (function(kc, mod, d){ return function(){ pressKey(kc, mod, d); }; })(kc, mod, d);
-                    d.addEventListener('mousedown', function(e){ e.preventDefault(); fn(); });
-                    d.addEventListener('touchstart', function(e){ e.preventDefault(); fn(); }, {passive:false});
-                }
-                rd.appendChild(d);
-            });
-            el.appendChild(rd);
-        });
-    }
-
-    function pressKey(kc, mod, el) {
-        if (mod && kc === 0) {
-            kbdMods ^= mod;
-            document.querySelectorAll('.key-mod').forEach(function(b){
-                b.classList.toggle('mod-active', !!(kbdMods & +b.dataset.mod));
-            });
-            return;
-        }
-        if (el) { el.classList.add('flash'); setTimeout(function(){ el.classList.remove('flash'); }, 120); }
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        var m = kbdMods | mod;
-        // press: [0x01, modifier, 0x00(reserved), keycode, 0,0,0,0,0]
-        var press = new Uint8Array(9); press[0]=0x01; press[1]=m; press[3]=kc;
-        // release: all zeros except cmd byte
-        var rel = new Uint8Array(9); rel[0]=0x01;
-        ws.send(press.buffer);
-        ws.send(rel.buffer);
-        if (kbdMods) {
-            kbdMods = 0;
-            document.querySelectorAll('.key-mod').forEach(function(b){ b.classList.remove('mod-active'); });
-        }
-    }
-
     function sendMouse(buttons, dx, dy, wheel) {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         var buf = new ArrayBuffer(5);
@@ -254,27 +146,70 @@
 
     function initMousePad() {
         var pad = $('mouse-pad');
-        var tracking = false;
-        var lastX = 0, lastY = 0;
-        var accumX = 0, accumY = 0;
-        var tapMoved = false;
+        var overPad = false;
 
-        pad.addEventListener('pointerdown', function(e) {
-            e.preventDefault();
-            pad.setPointerCapture(e.pointerId);
-            tracking = true;
-            tapMoved = false;
-            lastX = e.clientX; lastY = e.clientY;
-            accumX = 0; accumY = 0;
-            pad.classList.add('tracking');
+        var pointerLocked = false;
+
+        function isActiveCapture() {
+            return overPad || pointerLocked;
+        }
+
+        function updatePadActive() {
+            pad.classList.toggle('active', isActiveCapture() || touchTracking);
+        }
+
+        // --- Desktop: hover to move / pointer lock ---
+        pad.addEventListener('mouseenter', function() {
+            overPad = true;
+            updatePadActive();
+        });
+        pad.addEventListener('mouseleave', function() {
+            overPad = false;
+            updatePadActive();
         });
 
-        pad.addEventListener('pointermove', function(e) {
-            if (!tracking) return;
+        document.addEventListener('pointerlockchange', function() {
+            pointerLocked = document.pointerLockElement === pad;
+            updatePadActive();
+        });
+
+        function sendMove(dx, dy) {
+            if (!isActiveCapture()) return;
+            if (dx !== 0 || dy !== 0) sendMouse(0, dx, dy, 0);
+        }
+
+        pad.addEventListener('mousemove', function(e) {
+            if (pointerLocked) return;
+            sendMove(e.movementX, e.movementY);
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!pointerLocked) return;
+            sendMove(e.movementX, e.movementY);
+        });
+
+        // --- Touch: drag to move ---
+        var touchTracking = false;
+        var lastTX = 0, lastTY = 0;
+        var touchMoved = false;
+        var accumX = 0, accumY = 0;
+
+        pad.addEventListener('pointerdown', function(e) {
+            if (e.pointerType === 'mouse') return;
             e.preventDefault();
-            var rx = e.clientX - lastX, ry = e.clientY - lastY;
-            lastX = e.clientX; lastY = e.clientY;
-            if (Math.abs(rx) > 1 || Math.abs(ry) > 1) tapMoved = true;
+            pad.setPointerCapture(e.pointerId);
+            touchTracking = true;
+            touchMoved = false;
+            lastTX = e.clientX; lastTY = e.clientY;
+            accumX = 0; accumY = 0;
+            updatePadActive();
+        });
+        pad.addEventListener('pointermove', function(e) {
+            if (e.pointerType === 'mouse' || !touchTracking) return;
+            e.preventDefault();
+            var rx = e.clientX - lastTX, ry = e.clientY - lastTY;
+            lastTX = e.clientX; lastTY = e.clientY;
+            if (Math.abs(rx) > 1 || Math.abs(ry) > 1) touchMoved = true;
             accumX += rx; accumY += ry;
             var dx = Math.round(accumX), dy = Math.round(accumY);
             if (dx !== 0 || dy !== 0) {
@@ -282,45 +217,172 @@
                 accumX -= dx; accumY -= dy;
             }
         });
-
-        function pointerEnd(e) {
-            if (!tracking) return;
-            tracking = false;
-            pad.classList.remove('tracking');
-            if (!tapMoved) {
-                // tap = left click
+        function touchEnd(e) {
+            if (e.pointerType === 'mouse' || !touchTracking) return;
+            touchTracking = false;
+            updatePadActive();
+            if (!touchMoved) {
                 sendMouse(1, 0, 0, 0);
                 setTimeout(function() { sendMouse(0, 0, 0, 0); }, 50);
             }
         }
-        pad.addEventListener('pointerup', pointerEnd);
-        pad.addEventListener('pointercancel', pointerEnd);
+        pad.addEventListener('pointerup', touchEnd);
+        pad.addEventListener('pointercancel', touchEnd);
 
+        // --- Desktop button clicks (left/middle/right) ---
+        function buttonToBit(button) {
+            if (button === 0) return 1; // left
+            if (button === 1) return 4; // middle
+            if (button === 2) return 2; // right
+            if (button === 3) return 8; // back (X1)
+            if (button === 4) return 16; // forward (X2)
+            return 0;
+        }
+
+        pad.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        pad.addEventListener('auxclick', function(e) {
+            e.preventDefault();
+        });
+
+        function requestLock() {
+            if (pointerLocked || !pad.requestPointerLock) return;
+            try { pad.requestPointerLock(); } catch (_) {}
+        }
+
+        pad.addEventListener('mousedown', function(e) {
+            if (pointerLocked) return;
+            var bit = buttonToBit(e.button);
+            if (!bit) return;
+            e.preventDefault();
+            if (e.button === 0) requestLock();
+            sendMouse(bit, 0, 0, 0);
+        });
+
+        pad.addEventListener('mouseup', function(e) {
+            if (pointerLocked) return;
+            var bit = buttonToBit(e.button);
+            if (!bit) return;
+            e.preventDefault();
+            sendMouse(0, 0, 0, 0);
+        });
+
+        document.addEventListener('mousedown', function(e) {
+            if (!pointerLocked) return;
+            var bit = buttonToBit(e.button);
+            if (!bit) return;
+            e.preventDefault();
+            sendMouse(bit, 0, 0, 0);
+        });
+
+        document.addEventListener('mouseup', function(e) {
+            if (!pointerLocked) return;
+            var bit = buttonToBit(e.button);
+            if (!bit) return;
+            e.preventDefault();
+            sendMouse(0, 0, 0, 0);
+        });
+
+        document.addEventListener('contextmenu', function(e) {
+            if (!pointerLocked) return;
+            e.preventDefault();
+        });
+
+        document.addEventListener('auxclick', function(e) {
+            if (!pointerLocked) return;
+            e.preventDefault();
+        });
+
+        // --- Scroll wheel ---
         pad.addEventListener('wheel', function(e) {
             e.preventDefault();
             var delta = e.deltaY > 0 ? -1 : 1;
             sendMouse(0, 0, 0, delta);
         }, {passive: false});
 
-        function setupBtn(id, btnBit) {
-            var el = $(id);
-            function click(e) {
+        document.addEventListener('wheel', function(e) {
+            if (!pointerLocked) return;
+            e.preventDefault();
+            var delta = e.deltaY > 0 ? -1 : 1;
+            sendMouse(0, 0, 0, delta);
+        }, {passive: false});
+
+        // --- Keyboard: capture while mouse is over pad ---
+        document.addEventListener('keydown', function(e) {
+            if (!isActiveCapture()) return;
+
+            if (pointerLocked && e.code === 'Escape') {
                 e.preventDefault();
-                el.classList.add('flash');
-                setTimeout(function() { el.classList.remove('flash'); }, 120);
-                sendMouse(btnBit, 0, 0, 0);
-                setTimeout(function() { sendMouse(0, 0, 0, 0); }, 50);
+                if (document.exitPointerLock) document.exitPointerLock();
+                return;
             }
-            el.addEventListener('mousedown', click);
-            el.addEventListener('touchstart', click, {passive: false});
-        }
-        setupBtn('mbtn-left', 1);
-        setupBtn('mbtn-mid', 4);
-        setupBtn('mbtn-right', 2);
+
+            var kc = domKeyToHid(e.code);
+            if (kc === 0) return;
+            e.preventDefault();
+            var mod = getModifiers();
+            var press = new Uint8Array(9); press[0]=0x01; press[1]=mod; press[3]=kc;
+            var rel   = new Uint8Array(9); rel[0]=0x01;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(press.buffer);
+                ws.send(rel.buffer);
+            }
+        });
+
+    }
+
+    // Map DOM KeyboardEvent.code to HID usage IDs
+    var HID_MAP = {
+        'KeyA':0x04,'KeyB':0x05,'KeyC':0x06,'KeyD':0x07,'KeyE':0x08,'KeyF':0x09,
+        'KeyG':0x0A,'KeyH':0x0B,'KeyI':0x0C,'KeyJ':0x0D,'KeyK':0x0E,'KeyL':0x0F,
+        'KeyM':0x10,'KeyN':0x11,'KeyO':0x12,'KeyP':0x13,'KeyQ':0x14,'KeyR':0x15,
+        'KeyS':0x16,'KeyT':0x17,'KeyU':0x18,'KeyV':0x19,'KeyW':0x1A,'KeyX':0x1B,
+        'KeyY':0x1C,'KeyZ':0x1D,
+        'Digit1':0x1E,'Digit2':0x1F,'Digit3':0x20,'Digit4':0x21,'Digit5':0x22,
+        'Digit6':0x23,'Digit7':0x24,'Digit8':0x25,'Digit9':0x26,'Digit0':0x27,
+        'Enter':0x28,'Escape':0x29,'Backspace':0x2A,'Tab':0x2B,'Space':0x2C,
+        'Minus':0x2D,'Equal':0x2E,'BracketLeft':0x2F,'BracketRight':0x30,
+        'Backslash':0x31,'Semicolon':0x33,'Quote':0x34,'Backquote':0x35,
+        'Comma':0x36,'Period':0x37,'Slash':0x38,'CapsLock':0x39,
+        'F1':0x3A,'F2':0x3B,'F3':0x3C,'F4':0x3D,'F5':0x3E,'F6':0x3F,
+        'F7':0x40,'F8':0x41,'F9':0x42,'F10':0x43,'F11':0x44,'F12':0x45,
+        'PrintScreen':0x46,'ScrollLock':0x47,'Pause':0x48,
+        'Insert':0x49,'Home':0x4A,'PageUp':0x4B,'Delete':0x4C,'End':0x4D,'PageDown':0x4E,
+        'ArrowRight':0x4F,'ArrowLeft':0x50,'ArrowDown':0x51,'ArrowUp':0x52,
+        'NumLock':0x53,
+        'Numpad0':0x62,'Numpad1':0x59,'Numpad2':0x5A,'Numpad3':0x5B,
+        'Numpad4':0x5C,'Numpad5':0x5D,'Numpad6':0x5E,'Numpad7':0x5F,
+        'Numpad8':0x60,'Numpad9':0x61,'NumpadDecimal':0x63,
+        'NumpadDivide':0x54,'NumpadMultiply':0x55,'NumpadSubtract':0x56,
+        'NumpadAdd':0x57,'NumpadEnter':0x58,
+        'ShiftLeft':0xE1,'ShiftRight':0xE5,
+        'ControlLeft':0xE0,'ControlRight':0xE4,
+        'AltLeft':0xE2,'AltRight':0xE6,
+        'MetaLeft':0xE3,'MetaRight':0xE7,
+    };
+
+    var MOD_CODES = {
+        'ControlLeft':0x01,'ControlRight':0x10,'ShiftLeft':0x02,'ShiftRight':0x20,
+        'AltLeft':0x04,'AltRight':0x40,'MetaLeft':0x08,'MetaRight':0x80
+    };
+    var heldModifiers = {};
+
+    document.addEventListener('keydown', function(e) { if (e.code in MOD_CODES) heldModifiers[e.code] = true; });
+    document.addEventListener('keyup',   function(e) { if (e.code in MOD_CODES) delete heldModifiers[e.code]; });
+
+    function getModifiers() {
+        var m = 0;
+        for (var c in heldModifiers) m |= MOD_CODES[c];
+        return m;
+    }
+
+    function domKeyToHid(code) {
+        return HID_MAP[code] || 0;
     }
 
     wsConnect();
-    buildKbd();
     initMousePad();
     </script>
 </body>
