@@ -11,6 +11,21 @@ using namespace std;
 
 app_state as;
 
+// --- ASCII to HID keycode conversion ---
+static uint8_t ascii_to_hid(char c) {
+    if (c >= 'a' && c <= 'z') return 0x04 + (c - 'a');  // a-z
+    if (c >= 'A' && c <= 'Z') return 0x04 + (c - 'A');  // A-Z (same as lowercase, shift handled separately)
+    if (c >= '1' && c <= '9') return 0x1E + (c - '1');  // 1-9
+    if (c == '0') return 0x27;                           // 0
+    if (c == ' ') return 0x2C;                           // Space
+    if (c == '.') return 0x37;                           // .
+    if (c == ',') return 0x36;                           // ,
+    if (c == '\n') return 0x28;                          // Enter
+    if (c == '\t') return 0x2B;                          // Tab
+    if (c == '\r') return 0x28;                          // Enter
+    return 0;  // unsupported character
+}
+
 // --- dashboard ---
 
 void led_put(bool on) {
@@ -76,13 +91,15 @@ int main() {
     // start_time = get_absolute_time();
     stdio_init_all();
 
-    log("");
-    log("-----");
-    log("Hydra");
+    if (log_enabled()) {
+        log("");
+        log("-----");
+        log("Hydra");
+    }
 
     // Initialise the Wi-Fi/bluetooth chip
     if (cyw43_arch_init()) {
-        log("Wireless chip init failed\n");
+        if (log_enabled()) log("Wireless chip init failed\n");
         led_blink_sos_forever();
     }
 
@@ -127,21 +144,25 @@ int main() {
     };
 
     h.cmd_type = [&b](const string& text) {
-        log("Received text to type: %s", text.c_str());
-        b.send_key_press(0x17);
-
-        // press 't'
-        // hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0x17);
-        // submit(report_id::kbd);
-        // hid_kbd_rpt_set_keycode(hid_rpt_kbd, 0);
-        // submit(report_id::kbd);
+        if (log_enabled()) log("Received text to type: %s", text.c_str());
+        for (char c : text) {
+            uint8_t hid_code = ascii_to_hid(c);
+            if (hid_code != 0) {
+                b.send_key_press(hid_code);
+                sleep_ms(10);  // Small delay between keypresses
+            }
+        }
     };
 
     h.cmd_reboot = []() {
-        log("Rebooting...");
+        if (log_enabled()) log("Rebooting...");
         sleep_ms(1000);
         watchdog_reboot(0, 0, 0);
     };
+
+    // Timer for periodic state updates (uptime, BT name, etc.)
+    absolute_time_t next_notify_time = get_absolute_time();
+    const int NOTIFY_INTERVAL_MS = 5000;  // Send updates every 5 seconds
 
     while (true) {
 
@@ -152,6 +173,15 @@ int main() {
         // sleep_ms(1000);
         led_blink(1, 2000);
 #endif
+
+        // Send periodic updates to WebSocket client
+        absolute_time_t now = get_absolute_time();
+        if (absolute_time_diff_us(next_notify_time, now) >= 0) {
+            cyw43_arch_lwip_begin();
+            h.notify();
+            cyw43_arch_lwip_end();
+            next_notify_time = delayed_by_ms(now, NOTIFY_INTERVAL_MS);
+        }
 
         // log("Hydra [%s] %s:%s", VTAG, WIFI_SSID, WIFI_PASSWORD);
 

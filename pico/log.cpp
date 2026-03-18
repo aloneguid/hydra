@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 
-bool is_enabled = true;
+bool is_enabled = false;
 
 bool log_enabled() {
     return is_enabled;

@@ -297,7 +297,7 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t* packe
                         // keep advertisting if we have space for more devices
                         hci_send_cmd(&hci_le_set_advertise_enable, 1);
                         // hci_send_cmd(&hci_le_set_scan_enable, 1);
-                        log("       dev: %u < %u", hid_central::size(), BRPI_MAX_BT_CONNECTIONS);
+                        if(log_enabled()) log("       dev: %u < %u", hid_central::size(), BRPI_MAX_BT_CONNECTIONS);
                     }
 
 

@@ -40,18 +40,18 @@ void httpd::init() {
 
 void httpd::connect() {
     connection_attempts++;
-    log("Connecting to Wi-Fi: %s, attempt %d", WIFI_SSID, connection_attempts);
+    if (log_enabled()) log("Connecting to Wi-Fi: %s, attempt %d", WIFI_SSID, connection_attempts);
     int result = cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000);
     if (result != 0) {
         string reason = (result == PICO_ERROR_TIMEOUT)       ? "timeout" :
                         (result == PICO_ERROR_BADAUTH)        ? "bad auth" :
                         (result == PICO_ERROR_CONNECT_FAILED) ? "conn failed" :
                         "unknown";
-        log("Wi-Fi failed: %d (%s)", result, reason.c_str());
+        if (log_enabled()) log("Wi-Fi failed: %d (%s)", result, reason.c_str());
         return;
     }
     ip4addr = ip4addr_ntoa(netif_ip4_addr(netif_list));
-    log("Wi-Fi connected, IP: %s", ip4addr.c_str());
+    if (log_enabled()) log("Wi-Fi connected, IP: %s", ip4addr.c_str());
     is_connected = true;
     start_time = get_absolute_time();
 }
@@ -78,7 +78,7 @@ void httpd::start() {
         uint8_t cmd = b[0];
         size_t  len = msg.size();
 
-        log("WS rx cmd=0x%02x len=%u", cmd, (unsigned)len);
+        if (log_enabled()) log("WS rx cmd=0x%02x len=%u", cmd, (unsigned)len);
         h.as.bt_centrals_json_array.clear();  // invalidate cache before notify
 
         switch (cmd) {
@@ -104,8 +104,12 @@ void httpd::start() {
             case CMD_TYPE: {
                 if (len >= 3) {
                     uint16_t tlen = rd_u16le(b + 1);
-                    if (len >= (size_t)(3 + tlen) && h.cmd_type)
-                        h.cmd_type(string((const char*)(b + 3), tlen));
+                    if (log_enabled()) log("CMD_TYPE: msg_len=%u text_len=%u", (unsigned)len, (unsigned)tlen);
+                    if (len >= (size_t)(3 + tlen) && h.cmd_type) {
+                        string text((const char*)(b + 3), tlen);
+                        if (log_enabled()) log("Sending text: %s", text.c_str());
+                        h.cmd_type(text);
+                    }
                 }
                 break;
             }
@@ -113,7 +117,7 @@ void httpd::start() {
                 if (h.cmd_reboot) h.cmd_reboot();
                 return;  // no notify after reboot
             default:
-                log("WS rx unknown cmd 0x%02x", cmd);
+                if (log_enabled()) log("WS rx unknown cmd 0x%02x", cmd);
                 return;
         }
 
